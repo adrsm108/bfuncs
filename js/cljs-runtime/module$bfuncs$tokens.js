@@ -1,2 +1,0 @@
-shadow$provide.module$bfuncs$tokens=function(global,require,module,exports){Object.defineProperty(exports,"__esModule",{value:!0});exports.term=function(value){return/^\d+(_\d+)*$/.test(value)?_termsParserTerms.Dec:/^0x[a-fA-F\d]+(_[a-fA-F\d]+)*$/.test(value)?_termsParserTerms.Hex:/^0o[0-7]+(_[0-7]+)*$/.test(value)?_termsParserTerms.Oct:/^0b[01]+(_[01]+)*$/.test(value)?_termsParserTerms.Bin:_termsParserTerms.None};var _termsParserTerms=require("module$bfuncs$termsParser_terms")}
-//# sourceMappingURL=module$bfuncs$tokens.js.map
