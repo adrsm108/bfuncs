@@ -107,7 +107,7 @@
               [table-cell {:class "terms-cell"}
                (str/join ", " terms)]
               (fori' [m :index, x imp]
-                ^{:key m} [table-cell (case x true "1" false "0" nil "–")])])))])]))
+                ^{:key m} [table-cell (case x true "1" false "0" nil "‒")])])))])]))
 
 (defn reduction-steps-pagination
   [{:keys [!sel page-count rows-per-page-options mini]}]

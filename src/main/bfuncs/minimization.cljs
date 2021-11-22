@@ -89,7 +89,7 @@
             (recur (inc i))))))))
 
 (defn- stringify-implicant [imp]
-  (str/join (map {false "0" true "1" nil "-"} imp)))
+  (str/join (map {false "0" true "1" nil "‒"} imp)))
 
 (defn implicants->maps
   "Inverse of maps->implicants"
@@ -751,7 +751,7 @@
        (mp steps primes essentials remaining covers)))))
 
 (defn minimization-steps-from-expr [target-form vars expr]
-  (let [[term-type term-word prime-word] (case target-form
+  (let [[term-type term-word imp-word] (case target-form
                                            :SOP [:minterms "minterm" "implicant"]
                                            :POS [:maxterms "maxterm" "implicate"])
         bobj (bexpr->bobj expr)
@@ -759,7 +759,7 @@
     (assoc (quine-mccluskey-meta truth-vecs)
       :target-form target-form
       :term-word term-word
-      :prime-word prime-word
+      :imp-word imp-word
       :expr expr
       :indexed-expr (index-bobj vars bobj)
       :vars vars
@@ -785,7 +785,7 @@
                                  (->truth-vecs unspecified term-length true))
       :target-form target-form
       :term-word term-word
-      :prime-word prime-word
+      :imp-word prime-word
       :vars vars
       :unspecified unspecified
       :terms terms

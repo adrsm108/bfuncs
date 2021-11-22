@@ -29,13 +29,13 @@
      :typography {:subtitle-1 {:font-size "1.1rem"
                                :line-height 1.5}
                   :h-4 {:font-weight 500}
-                  :monospace-1 {:font-family ["Source Code Pro" "monospace"] ;["Roboto Mono" "monospace" "sans"]
-                                :font-weight 400
-                                :font-size "1rem"
+                  :monospace-1 {:font-family ["Consolas" "Monaco" "monospace"]
+                                ;:font-weight 400
+                                :font-size "1.2rem"
                                 :line-height "normal"}
-                  :monospace-2 {:font-family ["Source Code Pro" "monospace"]
-                                :font-weight 400
-                                :font-size "0.875rem"
+                  :monospace-2 {:font-family ["monospace" "Source Code Pro"]
+                                ;:font-weight 400
+                                :font-size "1rem" ;"0.875rem"
                                 :line-height "normal"}
                   }})
    {:variants ["h1" "h2" "h3" "h4" "h5" "h6"]}))
@@ -113,7 +113,7 @@
                  :background (background :paper)
                  :color (primary :main)}
        :main {:flex-grow 1
-              :min-height "100vh"
+              ;:min-height "100vh"
               :width "100%"
               :display "flex"
               >.main-container {:padding-y (spacing 4)
@@ -130,8 +130,9 @@
                                   :display "grid"
                                   :font-size "1rem"
                                   :justify-content "center"
-                                  :grid-template-columns "auto minmax(60%, auto)"
+                                  :grid-template-columns "auto 1fr"
                                   tr {:display "contents"}
+                                  td.head.prime {:justify-content "center"}
                                   tr:first-child>td {:mixin (typography :body-2)
                                                      :border-bottom table-border
                                                      :padding-y (spacing 1)
@@ -495,6 +496,15 @@
                                    :display "flex"
                                    :row-gap (spacing 1)
                                    :flex-flow "row wrap"}
+                    .example-imps {:display "grid"
+                                   :align-content "center"
+                                   :justify-content "center"
+                                   :align-items "center"
+                                   :justfy-items "center"
+                                   :grid-template-columns "auto auto auto"
+                                   .rel-op {:padding-x (spacing 1)}
+                                   .ex-imp {:justify-self "center"}
+                                   }
                     .dnd-container {:display "flex"
                                     :justify-content "center"}
                     .thus {:display "grid"
@@ -651,8 +661,7 @@
                                                                                               "border-color"]
                                                                                              {:duration short})}}}
        :input-card {.specification-label.Mui-focused {:color (text :secondary)}
-                    >.MuiCardContent-root {:extends [:card-content]
-
+                    >.MuiCardContent-root {:extends :card-content
                                            ;:row-gap (spacing 2)
                                            ;:padding (spacing 3)
                                            }
@@ -810,7 +819,11 @@
               &.closed {:row-gap 0
                         .step-content>.MuiCollapse-wrapper {:opacity 0}}
               &.last {.liney {:visibility "hidden"}}
-              &.result {.step-content {:grid-column "1 / -1"}}
+              [&.result &.loop] {$step-icon {:padding-x 0}}
+              &.result {>.step-summary>h6 {:font-weight "500"
+                                           >.normal {:font-weight "normal"}}
+                        >.step-content {:grid-column "1 / -1"
+                                        .MuiCollapse-wrapperInner {:padding-bottom (spacing 4)}}}
               >.icon-and-line {:display "flex"
                                :flex-direction "column"
                                :padding-top 3
@@ -876,11 +889,12 @@
                                        >.copy-button {:grid-column-start 2
                                                       :justify-self "flex-end"}
                                        '(>.row (:not :last-child)) {:margin-bottom (spacing 2)}}}
-       :card-content {:padding (spacing 3)
-                      :row-gap (spacing 2)
-                      (break-down "xs") {:padding (spacing 2)
-                                         :row-gap (spacing 1)}
-
+       :card-content {:padding (spacing 2)
+                      :row-gap (spacing 1)
+                      (break-up "xs") {:padding (spacing 3)
+                                       :row-gap (spacing 2)}
+                      (break-up "md") {:padding (spacing 4)
+                                       :row-gap (spacing 2)}
                       }
        :prime-implicant-table-container {:position "relative"}
        :radial-chart
@@ -1173,6 +1187,8 @@
                      span.label {:margin-right (spacing 1)
                                  :font-weight 500
                                  :user-select "none"}}
+       :conditions {:padding-y (spacing 0.75)
+                    >li {:padding-y (spacing 0.25)}}
        "@keyframes flood-fade" {:from {:flood-opacity 0}
                                 :to {:flood-opacity 1}}
        "@keyframes mosey-on-in" {:from {:opacity 0}

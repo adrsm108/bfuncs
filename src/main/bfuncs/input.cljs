@@ -90,7 +90,7 @@
   [:> TermsField {:class (classes :editor-field :terms-field class)
                   :onParse on-parse
                   :showErrors (contains? issues :errors)
-                  :duplicatedTerms (echol (str placeholder " dups: ") duped-terms)
+                  :duplicatedTerms duped-terms
                   :placeholder placeholder
                   :initialDoc initial-doc
                   :allowEmpty allow-empty}])
@@ -134,13 +134,13 @@
     "Parsed Expression"]
    [expression {:class (classes :typeset-expression)
                 :expandable true}
-    (echol :expr expr)]])
+    expr]])
 
 (defn expression-input [{:keys [class]}]
   (r/with-let [handle-parse (fn [js-result]
                               (swap! !expression-field-state assoc
                                      :parse (parse-result->clj
-                                             (echol :js-result js-result)
+                                             js-result
                                              :expression)))
                handle-click-away #(reset! !marked-var [nil false])
                default-text (get-in @!expression-field-state [:parse :text])
@@ -154,11 +154,9 @@
                            :on-parse handle-parse
                            :issues issues
                            :initial-doc default-text}]
-        [expression-section (do
-                              (echol porse)
-                              (if errors?
-                                @!last-valid-expr
-                                (reset! !last-valid-expr tree)))]
+        [expression-section (if errors?
+                              @!last-valid-expr
+                              (reset! !last-valid-expr tree))]
         [variables-section vars marked-var]]])))
 
 (defn- minterms-input [{:keys [class]}]
@@ -228,7 +226,7 @@
                      :allow-empty true}]
        [terms-section "Maxterms" terms]
        [terms-section "Unspecified" u-terms]
-       (when-not (and (empty? (echol :this-terms terms)) (empty? (echol :this-u-terms u-terms)))
+       (when-not (and (empty? terms) (empty? u-terms))
          [terms-expression {:maxterms terms :unspecified u-terms}])])))
 
 
@@ -246,7 +244,6 @@
                         (let-case [input-type @!input-type]
                           "expression" (let [{:keys [issues parse]}
                                              (update-issues! !expression-field-state)]
-                                         (echol parse)
                                          ((if-not (empty? issues)
                                             on-failure
                                             on-success) parse))

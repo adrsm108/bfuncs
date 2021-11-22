@@ -338,7 +338,7 @@
    :pimplicate ["P" "prime implicate" 13.98]
    :minterm ["m" "minterm" 19.13]
    :maxterm ["M" "maxterm" 21.14]
-   :P ["\\mathcal{P}" "p set" 20]})
+   :impset ["P^{*}" "p set" 20]})
 
 (def default-macros
   (reduce #(j/assoc! %1

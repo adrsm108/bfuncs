@@ -26,12 +26,14 @@
    [reagent-material-ui.core.container :refer [container]]
    [reagent-material-ui.core.css-baseline :refer [css-baseline]]
    [reagent-material-ui.core.icon-button :refer [icon-button]]
+   [reagent-material-ui.icons.help-outline-outlined :refer [help-outline-outlined]]
    [reagent-material-ui.core.switch-component :refer [switch]]
    [reagent-material-ui.core.text-field :refer [text-field]]
    [reagent-material-ui.core.toolbar :refer [toolbar]]
    [reagent-material-ui.core.typography :refer [typography]]
    [reagent-material-ui.icons.tune-outlined :refer [tune-outlined]]
    [reagent-material-ui.styles :refer [theme-provider]] ;endregion
+   [reagent-material-ui.icons.git-hub :refer [git-hub]]
    ["/bfuncs/TruthTable" :default TruthTable]
    ["/bfuncs/FunctionSummary" :refer [RadialChart]]
    ["/bfuncs/jsUtils" :refer [functionBytes, bytesToBigInt, functionProperties]]))
@@ -78,7 +80,7 @@
                :spell-check "false"}])
 
 (defn- results-card [{:keys [title]}]
-  [card {:class (classes :card)}
+  [card {:class (classes :results-card)}
    [card-content {:class (classes :card-content :vertical-grid)}
     #_[typography {:variant "h2"}
        title]
@@ -219,11 +221,17 @@
                   :no-wrap true
                   :class (classes :title)}
       "Boolean Function Explorer"]
+     [icon-button {:color "inherit"}
+      [help-outline-outlined
+       {:font-size "inherit"}]]
+     [icon-button {:color "inherit"}
+      [git-hub]]
      [icon-button {:edge "end"
                    :color "inherit"
                    :on-click #(toggle! !typesetting-menu-open)
                    :class (classes :typesetting-menu-button)}
       [tune-outlined]]]]
+
    [typesetting-menu {:open @!typesetting-menu-open
                       :on-close #(reset! !typesetting-menu-open false)}]
    [:main {:class (classes :main)}
