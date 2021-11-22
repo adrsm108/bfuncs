@@ -1,0 +1,6 @@
+/public/js/cljs-runtime/
+/.shadow-cljs/
+/node_modules/
+/bfuncs.iml
+/src/gen/
+/report.html

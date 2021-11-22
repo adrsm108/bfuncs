@@ -1,0 +1,41 @@
+{
+ ;:deps true
+ :source-paths ["src/dev"
+                "src/main"
+                "src/ports"
+                "src/test"
+                "src/js"
+                "src/gen"]
+
+ :dependencies [[reagent "1.0.0"]
+                [arttuka/reagent-material-ui "4.11.3-2"
+                 :exclusions [cljsjs/react
+                              cljsjs/react-dom
+                              cljsjs/react-dom-server
+                              arttuka/reagent-material-ui-js]]
+                [applied-science/js-interop "0.2.7"]]
+
+ :jvm-opts ["-Dfile.encoding=UTF8"]
+
+ :dev-http {8020 "public"}
+
+ :builds {:app
+          {:target :browser
+           :js-options {:anon-fn-naming-policy :unmapped}
+           :compiler-options {:anon-fn-naming-policy :unmapped
+                              ;:output-feature-set :es2020
+                              :output-feature-set :es6
+                              }
+           :output-dir "public/js"
+           :asset-path "/js"
+           :modules {:shared
+                     {:entries []}
+                     :main
+                     {:init-fn bfuncs.core/init
+                      :depends-on #{:shared}}
+                     :worker
+                     {:init-fn bfuncs.worker/init
+                      :depends-on #{:shared}
+                      :web-worker true}}
+           }}
+ }

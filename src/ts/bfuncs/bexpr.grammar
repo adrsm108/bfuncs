@@ -1,0 +1,78 @@
+@detectDelim
+@skip { space }
+@precedence {
+pre @right
+post @left
+}
+@top expr[group=str] { p0 }
+
+p0 { IMP | NIMP | p1 }
+p1 { CON | NCON | p2 }
+p2 { EQ  | NEQ  | p3 }
+p3 { OR  | NOR  | p4 }
+p4 { XOR | XNOR | p5 }
+p5 { AND | NAND | p6 }
+p6 { NOT | TRUE | FALSE | Var | "(" p0 ")" }
+
+nary<prec, op, other> { ( other | prec ) ( op prec )+ }
+
+kw<name, x> { @specialize[@name={name}"Key"]<Var, x> }
+
+IMP   [group=str] { p1 Imp  p0 }
+NIMP  [group=str] { p1 Nimp p0 }
+CON   [group=str] { p1 Con  p2 }
+NCON  [group=str] { p1 Ncon p2 }
+EQ    [group=str] { nary<p3, Eq,   NEQ> }
+NEQ   [group=str] { nary<p3, Neq,  EQ> }
+OR    [group=str] { nary<p4, Or,   NOR> }
+NOR   [group=str] { nary<p4, Nor,  OR> }
+XOR   [group=str] { nary<p5, Xor,  XNOR> }
+XNOR  [group=str] { nary<p5, Xnor, XOR> }
+AND   [group=str] { nary<p6, And?, NAND> }
+NAND  [group=str] { nary<p6, Nand, AND> }
+NOT   [group=str] { !pre Not p6 | p6 !post NotPost }
+TRUE  [group=atom] { trueL  | kw<"lit", "true"> }
+FALSE [group=atom] { falseL | kw<"lit", "false"> }
+
+Imp  { impL  | neg<nimpL> | kw<"rel", "imp" | "implies"> }
+Nimp { nimpL | neg<impL>  }
+Con  { conL  | neg<nconL> | kw<"rel", "impby" | "impliedby"> }
+Ncon { nconL | neg<conL>  }
+Eq   { eqL   | neg<neqL>  | kw<"rel", "eq" | "equiv" | "equivalent">}
+Neq  { neqL  | neg<eqL>   | kw<"rel", "neq">}
+Or   { orL   | neg<norL>  | kw<"log", "or"> }
+Nor  { norL  | neg<orL>   | kw<"log", "nor"> }
+Xor  { xorL  | neg<xnorL> | kw<"log", "xor"> }
+Xnor { xnorL | neg<xorL>  | kw<"log", "xnor" | "nxor" | "xand" > }
+And  { andL  | neg<nandL> | kw<"log", "and"> }
+Nand { nandL | neg<andL>  | kw<"log", "nand"> }
+Not  { notL               | kw<"not", "not"> }
+NotPost{ notPostL }
+
+@tokens {
+    space { std.whitespace+ }
+
+    neg[@name=neg]<op> { notL op }
+
+    trueL    [@name=lit] { "⊤" | "1" }
+    falseL   [@name=lit] { "⊥" | "0" }
+    notL     [@name=not] { "!" | "~" | "¬" | "∼" }
+    notPostL [@name=not] { "'" }
+    impL     [@name=rel] { ("="+ | "-"+) ">" | "⇒" | "⟹" | "→" | "⟶" | "⊃" }
+    nimpL    [@name=rel] { "⇏" | "↛" | "⊅" }
+    conL     [@name=rel] { "<" ("="+ | "-"+ ) | "⇐" | "⟸" | "⟵" | "←" | "⊂" }
+    nconL    [@name=rel] {"↚" | "⇍" | "⊄"  }
+    eqL      [@name=rel] { "<" ("="+ | "-"+) ">" | "⇔" | "⟺" | "↔" | "⟷" | "≡" }
+    neqL     [@name=rel] { "⇎" | "↮" | "≢" }
+    orL      [@name=log] { "+" | "|" | "||" }
+    norL     [@name=log] { "⊽" | "↓" }
+    xorL     [@name=log] { "^" | "⊕" | "⊻" | "<+>" | "<>" }
+    xnorL    [@name=log] { "⊙" | "⩟" | "=" | "==" | "===" | "<*>" | "<.>" }
+    andL     [@name=log] { "*" | "." | "&" | "&&" | "∧" }
+    nandL    [@name=log] { "⊼" | "↑" }
+
+    @precedence {eqL, conL, neg<eqL>, neg<conL>, notL}
+
+    Var[@name=var, group=atom] { std.asciiLetter ( $[a-zA-Z0-9] | "-" )* ( "_" varAfterUnderscore )? }
+    varAfterUnderscore { ( $[a-zA-Z0-9] | "-" )+ ( "_" varAfterUnderscore )? }
+}
