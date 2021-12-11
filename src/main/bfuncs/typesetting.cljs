@@ -7,7 +7,7 @@
    [cljs.core.async :refer [put! <! >! chan] :refer-macros [go]]
    [bfuncs.utils
     :refer [assoc-in' echo map-vals clipboard-write! for' fori' log let-case get-meta
-            int-digits pass mp condo-> re-count toggle! str-surround str-join non-empties]]
+            int-digits pass mp condo-> re-count toggle! str-surround str-join non-empties echol]]
    [bfuncs.parsing :refer [operation-operands]]
    [bfuncs.globals :refer [notify!]]
    [bfuncs.style :refer [classes]]
@@ -496,23 +496,20 @@
   (r/with-let [id (random-uuid)]
     [expression-wrapper* props id (= id @!open-expr-id) summary details]))
 
-(defn minterms-expression [{:keys [minterms unspecified]}]
-  [$$ (if (and (empty? minterms) (empty? unspecified))
-        (->latex [:FALSE])
-        (str-join "\\sum{" " + " "}"
-                  (non-empties (when-not (empty? minterms)
-                                 (str-join "m(" "," ")" (sort minterms)))
-                               (when-not (empty? unspecified)
-                                 (str-join "d(" "," ")" (sort unspecified))))))])
-
-(defn maxterms-expression [{:keys [maxterms unspecified]}]
-  [$$ (if (and (empty? maxterms) (empty? unspecified))
-        (->latex [:TRUE])
-        (str-join "\\prod{" " \\cdot " "}"
-                  (non-empties (when-not (empty? maxterms)
-                                 (str-join "M(" "," ")" (sort maxterms)))
-                               (when-not (empty? unspecified)
-                                 (str-join "D(" "," ")" (sort unspecified))))))])
+(defn terms-expression [{:keys [minterms maxterms unspecified pre post]}]
+  (let [[terms command operator m d default]
+        (if (some? minterms)
+          [minterms "\\sum{" " + " "m(" "d(" (->latex [:FALSE])]
+          [maxterms "\\prod{" " \\cdot " "M(" "D(" (->latex [:TRUE])])]
+    [$$ (str pre
+             (if (and (empty? terms) (empty? unspecified))
+               default
+               (str-join command operator "}"
+                         (non-empties (when-not (empty? terms)
+                                        (str-join m "," ")" (sort terms)))
+                                      (when-not (empty? unspecified)
+                                        (str-join d "," ")" (sort unspecified))))))
+             post)]))
 
 (defn expression
   [{:keys [display !formatters expandable wrap class var-fn

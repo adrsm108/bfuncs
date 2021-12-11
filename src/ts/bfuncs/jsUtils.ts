@@ -1,7 +1,8 @@
 type BooleanFunctionValue = boolean | null;
 export type BooleanFunctionSpec =
   | ((args: boolean[]) => BooleanFunctionValue)
-  | {on: number[]; unspecified: number[]};
+  | { on: number[]; unspecified: number[] }
+  | { off: number[]; unspecified: number[] };
 
 export function functionBytes(f: BooleanFunctionSpec, arity: number): Int8Array {
   const n = 1 << arity;
@@ -15,7 +16,6 @@ export function functionBytes(f: BooleanFunctionSpec, arity: number): Int8Array 
         td[j] = (i & (1 << (arity - j - 1))) != 0;
       }
       tv = f(td);
-      // console.log(i, td.toString(), tv);
       if (tv === true) {
         fv[i] = 1;
       } else if (tv == null) {
@@ -23,7 +23,12 @@ export function functionBytes(f: BooleanFunctionSpec, arity: number): Int8Array 
       }
     }
   } else {
-    for (const i of f.on) fv[i] = 1;
+    if ('on' in f) {
+      for (const i of f.on) fv[i] = 1;
+    } else {
+      fv.fill(1);
+      for (const i of f.off) fv[i] = 0;
+    }
     for (const i of f.unspecified) fv[i] = -1;
   }
 
@@ -38,20 +43,12 @@ export function bytesToBigInt(bitBytes: Int8Array, lsbFirst: boolean = false): b
     for (let i = bitBytes.length - 1; i >= 0; i--) {
       bit = bitBytes[i];
       if (bit !== 0 && bit !== 1) return null;
-      // if (!(bit & (bit ^ 1))) {
-      //   console.log("failed for i = " + i + ", value", bit );
-      //   return null;
-      // }
       s += bit;
     }
   } else {
     for (let i = 0; i < bitBytes.length; i++) {
       bit = bitBytes[i];
       if (bit !== 0 && bit !== 1) return null;
-      // if (!(bit & (bit ^ 1))) {
-      //   console.log("failed for i = " + i + ", value", bit);
-      //   return null;
-      // }
       s += bitBytes[i];
     }
   }
@@ -107,7 +104,7 @@ export function functionProperties(
     "digit-string": s,
     "fully-specified": s !== null,
     "term-counts": [on, nBytes - (on + unspec), unspec],
-    index: compmuteIndex && s ? BigInt("0b" + [...s].reverse().join("")) : undefined,
+    index: compmuteIndex && s ? BigInt("0b" + [...s].reverse().join("")) : undefined
   };
 }
 

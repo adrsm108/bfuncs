@@ -8,7 +8,7 @@
 
 (defn create-worker []
   (let [id (str (random-uuid))
-        worker (doto (js/Worker. "/js/worker.js")
+        worker (doto (js/Worker. "./js/worker.js")
                  (j/call :postMessage
                    (j/lit {:task "assign-id"
                            :task-id 0

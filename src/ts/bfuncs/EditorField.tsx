@@ -1,4 +1,4 @@
-import React, {Component} from "react";
+import React, { Component } from "react";
 import {
   EditorState,
   Facet,
@@ -7,9 +7,9 @@ import {
   StateField,
   Transaction,
 } from "@codemirror/state";
-import {Decoration, DecorationSet, EditorView, placeholder} from "@codemirror/view";
-import {RangeSet, RangeSetBuilder} from "@codemirror/rangeset";
-import {bracketMatching} from "@codemirror/matchbrackets";
+import { Decoration, DecorationSet, EditorView, placeholder } from "@codemirror/view";
+import { RangeSet, RangeSetBuilder } from "@codemirror/rangeset";
+import { bracketMatching } from "@codemirror/matchbrackets";
 import {
   classHighlightStyle,
   HighlightStyle,
@@ -17,16 +17,20 @@ import {
   Tag,
   tags as t,
 } from "@codemirror/highlight";
-import {LanguageSupport, LezerLanguage, syntaxTree} from "@codemirror/language";
+import { LanguageSupport, LezerLanguage, syntaxTree } from "@codemirror/language";
 // @ts-ignore
-import {parser as bexprParser} from "./bexprParser.js";
+import { parser as bexprParser } from "./bexprParser.js";
 // @ts-ignore
-import {parser as termParser} from "./termsParser.js";
+import { parser as termParser } from "./termsParser.js";
 
 import clsx from "clsx";
 
 // @ts-ignore
-const echo = (label, x) => (console.log(label, x), x);
+// noinspection CommaExpressionJS
+const echo = (label, x) => {
+  console.log(label, x);
+  return x;
+};
 
 // @ts-ignore
 function logParseTree(state) {
@@ -41,7 +45,6 @@ function logParseTree(state) {
       }
     },
   });
-  console.log("Parse Tree:", stack.pop());
 }
 
 type PTree = string | boolean | PTree[];
@@ -51,7 +54,7 @@ type EditorFieldState = {
   hasErrors: boolean;
 };
 type EditorFieldProps = typeof EditorField.defaultProps & {
-  placeholder?: string | HTMLElement,
+  placeholder?: string | HTMLElement;
   onParse<T extends Partial<ParseData>>(newParse: T): any;
 };
 type ParseData = {
@@ -71,11 +74,11 @@ interface TermsParseData extends ParseData {
   dupMarks: DecorationSet;
 }
 
-const varMark = Decoration.mark({class: "cm-markedVar"});
-const errorMark = Decoration.mark({class: "cm-parseError"});
-const zeroWidthErrorLeftMark = Decoration.mark({class: "cm-zeroWidthErrorLeft"});
-const zeroWidthErrorRightMark = Decoration.mark({class: "cm-zeroWidthErrorRight"});
-const duplicateTermMark = Decoration.mark({class: "cm-duplicateTerm"});
+const varMark = Decoration.mark({ class: "cm-markedVar" });
+const errorMark = Decoration.mark({ class: "cm-parseError" });
+const zeroWidthErrorLeftMark = Decoration.mark({ class: "cm-zeroWidthErrorLeft" });
+const zeroWidthErrorRightMark = Decoration.mark({ class: "cm-zeroWidthErrorRight" });
+const duplicateTermMark = Decoration.mark({ class: "cm-duplicateTerm" });
 
 const hexInt = Tag.define(t.integer);
 const octInt = Tag.define(t.integer);
@@ -123,15 +126,15 @@ function terms() {
 }
 
 const style = HighlightStyle.define([
-  {tag: t.compareOperator, class: "cmt-rel-op"},
-  {tag: t.operatorKeyword, class: "cmt-operator-keyword cmt-operator"},
-  {tag: t.logicOperator, class: "cmt-log-op"},
-  {tag: t.special(t.logicOperator), class: "cmt-negated"},
-  {tag: t.integer, class: "cmt-integer"},
-  {tag: hexInt, class: "cmt-hex"},
-  {tag: octInt, class: "cmt-oct"},
-  {tag: binInt, class: "cmt-bin"},
-  {tag: t.separator, class: "cmt-sep"},
+  { tag: t.compareOperator, class: "cmt-rel-op" },
+  { tag: t.operatorKeyword, class: "cmt-operator-keyword cmt-operator" },
+  { tag: t.logicOperator, class: "cmt-log-op" },
+  { tag: t.special(t.logicOperator), class: "cmt-negated" },
+  { tag: t.integer, class: "cmt-integer" },
+  { tag: hexInt, class: "cmt-hex" },
+  { tag: octInt, class: "cmt-oct" },
+  { tag: binInt, class: "cmt-bin" },
+  { tag: t.separator, class: "cmt-sep" },
 ]);
 
 function updateByEffect<T>(effectType: StateEffectType<T>): (value: T, tr: Transaction) => T {
@@ -166,7 +169,7 @@ const ignoreAtCursorField = StateField.define<boolean>({
     (tr.docChanged ? true : tr.selection != null ? false : value),
 });
 const parseFacet = Facet.define<ParseData, ParseData>({
-  combine: (value) => (value.length ? value[0] : {errors: false, errMarks: Decoration.none}),
+  combine: (value) => (value.length ? value[0] : { errors: false, errMarks: Decoration.none }),
 });
 
 function parseTerm(text: string): term {
@@ -199,9 +202,9 @@ function getExprParseData(state: EditorState): ExprParseData {
         } else {
           errRanges.add(from, to, errorMark);
         }
-        stack.push(Object.assign([], {operation: "ERROR"}));
+        stack.push(Object.assign([], { operation: "ERROR" }));
       } else if (nt.is("str")) {
-        stack.push(Object.assign([], {operation: nt.name}));
+        stack.push(Object.assign([], { operation: nt.name }));
       } else if (nt.is("atom")) {
         const stackTop = stack[stack.length - 1] as PTree[];
         switch (nt.name) {
@@ -234,10 +237,8 @@ function getExprParseData(state: EditorState): ExprParseData {
     },
   });
   const errMarks = errRanges.finish();
-  const parse = stack.pop();
-  console.log(parse)
   return {
-    parse: parse!,
+    parse: stack.pop()!,
     vars: [...vars], //.sort(),
     errors: Boolean(errMarks.size),
     errMarks,
@@ -259,7 +260,6 @@ function getVariableMarks(state: EditorState) {
 function getTermsParseData(state: EditorState, ignoreAtCursor: boolean = true): TermsParseData {
   const cursorPos = ignoreAtCursor && state.selection.main.empty ? state.selection.main.from : null;
   const dups = new Set<term>(state.field(dupedTermsField));
-  console.log("duppies: ", dups);
   const errRanges = new RangeSetBuilder<Decoration>();
   const termPositions = new Map<term, [number, number][]>();
   const isUnderCursor: (from: number, to: number) => boolean =
@@ -350,18 +350,18 @@ abstract class EditorField<P extends EditorFieldProps> extends Component<P, Edit
     this.divRef = React.createRef<HTMLDivElement>();
     this.initErrors = false;
     const view = this.createEditor(props);
-    this.state = {view, hasErrors: this.initErrors};
+    this.state = { view, hasErrors: this.initErrors };
   }
 
   finishParse = <D extends ParseData>(data: D, text: string) => {
     const onParseArg =
-      text || this.props.allowEmpty ? Object.assign(data, {text: text}) : {errors: true, text};
+      text || this.props.allowEmpty ? Object.assign(data, { text: text }) : { errors: true, text };
     this.props.onParse(onParseArg);
 
     if (this.state == null) {
       this.initErrors = onParseArg.errors;
     } else if (this.state.hasErrors !== onParseArg.errors) {
-      this.setState({hasErrors: onParseArg.errors});
+      this.setState({ hasErrors: onParseArg.errors });
     }
 
     return data;
@@ -406,7 +406,7 @@ export class ExpressionField extends EditorField<ExpressionFieldProps> {
   }
 
   createEditor(props: ExpressionFieldProps) {
-    const {initialDoc: doc, showErrors, markedVariable} = props;
+    const { initialDoc: doc, showErrors, markedVariable } = props;
     return new EditorView({
       state: EditorState.create({
         extensions: [
@@ -430,7 +430,7 @@ export class ExpressionField extends EditorField<ExpressionFieldProps> {
 
   componentDidUpdate(prevProps: ExpressionFieldProps, prevState: EditorFieldState, snapshot?: any) {
     const updateEffects = [];
-    const {markedVariable, showErrors} = this.props;
+    const { markedVariable, showErrors } = this.props;
     if (markedVariable !== prevProps.markedVariable) {
       updateEffects.push(changeMarkedVariable.of(markedVariable));
     }
@@ -440,7 +440,7 @@ export class ExpressionField extends EditorField<ExpressionFieldProps> {
     if (updateEffects.length) {
       updateEffects.push(dontIgnoreAtCursor);
       correctSelection();
-      this.state.view.dispatch({effects: updateEffects});
+      this.state.view.dispatch({ effects: updateEffects });
     }
   }
 }
@@ -452,7 +452,7 @@ interface TermsFieldProps extends EditorFieldProps {
 export class TermsField extends EditorField<TermsFieldProps> {
   divProps = {
     onBlur: () => {
-      this.state.view.dispatch({effects: dontIgnoreAtCursor});
+      this.state.view.dispatch({ effects: dontIgnoreAtCursor });
     },
   };
 
@@ -461,8 +461,6 @@ export class TermsField extends EditorField<TermsFieldProps> {
   }
 
   parse(state: EditorState, ignoreAtCursor: boolean = true) {
-    // logParseTree(state);
-    // console.log("parsing");
     return this.finishParse(
       getTermsParseData(state, Boolean(this.state?.view?.hasFocus && ignoreAtCursor)),
       state.doc.toString()
@@ -470,7 +468,7 @@ export class TermsField extends EditorField<TermsFieldProps> {
   }
 
   createEditor(props: TermsFieldProps) {
-    const {initialDoc: doc, showErrors, duplicatedTerms, placeholder: placeholderVal} = props;
+    const { initialDoc: doc, showErrors, duplicatedTerms, placeholder: placeholderVal } = props;
     return new EditorView({
       state: EditorState.create({
         extensions: [
@@ -500,7 +498,7 @@ export class TermsField extends EditorField<TermsFieldProps> {
 
   componentDidUpdate(prevProps: TermsFieldProps, prevState: EditorFieldState, snapshot?: any) {
     const updateEffects = [];
-    const {duplicatedTerms, showErrors} = this.props;
+    const { duplicatedTerms, showErrors } = this.props;
     if (duplicatedTerms !== prevProps.duplicatedTerms) {
       updateEffects.push(changeDuplicatedTerms.of(duplicatedTerms));
     }
@@ -509,7 +507,7 @@ export class TermsField extends EditorField<TermsFieldProps> {
     }
     if (updateEffects.length) {
       correctSelection();
-      this.state.view.dispatch({effects: updateEffects});
+      this.state.view.dispatch({ effects: updateEffects });
     }
   }
 }

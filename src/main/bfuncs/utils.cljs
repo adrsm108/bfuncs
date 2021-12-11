@@ -34,18 +34,18 @@
 (def log js/console.log)
 (def dbg js/console.debug)
 (defn echo
-  ([x] (println x) x)
+  ([x] (when goog/DEBUG (println x)) x)
   ([label x]
-   (println label x)
+   (when goog/DEBUG (println label x))
    x))
 
 (defn echol
-  ([x] (log x) x)
-  ([label x] (log label x) x))
+  ([x] (when goog/DEBUG (log x)) x)
+  ([label x] (when goog/DEBUG (log label x)) x))
 
 (defn echod
-  ([x] (dbg x) x)
-  ([label x] (dbg label x) x))
+  ([x] (when goog/DEBUG (dbg x)) x)
+  ([label x] (when goog/DEBUG (dbg label x)) x))
 
 (defn rrange
   "Gives a sequence that is the reverse of the one produced by range with the same arguments.
@@ -172,7 +172,7 @@
      (reduce (fn [mv x]
                (max mv (f x)))
              (f a)
-             (rest coll)))) )
+             (rest coll)))))
 
 (defn minimum
   "Returns the min value of (f x) over all x in coll, where f defaults to identity."
@@ -183,7 +183,7 @@
      (reduce (fn [mv x]
                (min mv (f x)))
              (f a)
-             (rest coll)))) )
+             (rest coll)))))
 
 (defn count-when
   [pred coll]
@@ -250,7 +250,6 @@
   [pred coll]
   (seq (keep-indexed #(when (pred %2) %1) coll)))
 
-
 (defn pick
   "Takes two sequences, and returns a vector consisting of items from the
   first where the element at the corresponding position of the second is
@@ -293,7 +292,6 @@
           0
           coll))
 
-
 (defn truth-vecs
   ([n] (truth-vecs n false))
   ([n meta?]
@@ -303,6 +301,14 @@
                     #(mapv (partial bit-test %) idxs))
           (range (bit-set 0 n))))))
 
+(defn ->truth-vecs
+  ([ints arity] (->truth-vecs ints arity false))
+  ([ints arity meta?]
+   (let [idxs (rrange arity)]
+     (map (if meta? #(with-meta (mapv (partial bit-test %) idxs)
+                                {:terms (sorted-set %)})
+                    #(mapv (partial bit-test %) idxs))
+          ints))) )
 
 (defn max-set-bit
   "Gets maximum set bit of n. Expects n to be a nonnegative integer."
@@ -319,7 +325,6 @@
            (transient {})
            keys))
 
-;(defn pass [& _] nil)
 (def pass gfunc/NULL)
 
 (defn essence [x]
@@ -341,7 +346,6 @@
         (.push arr (f (first coll)))
         (recur (next coll))))
     arr))
-
 
 (defn map-into-array
   [f arr coll]
@@ -367,8 +371,6 @@
 
 (defn add-keys [seq]
   (map-indexed #(vary-meta %2 assoc :key %1) seq))
-
-
 
 (defn assoc-some
   ([coll k v]
@@ -408,7 +410,6 @@
   (fn [event & args]
     (apply f event args)
     (j/call event :stopPropagation)))
-
 
 (defn toggle-selection
   "Updates :selection in sel, to new-selection if it is different from current value, nil otherwise.
@@ -469,18 +470,18 @@
 
 (defn toggle!
   ([atom] (swap! atom not))
-  ([atom val] (swap! atom #(when-not (= % val) val))) )
+  ([atom val] (swap! atom #(when-not (= % val) val))))
 
 (defn str-join
   ([coll] (str/join coll))
   ([sep coll] (str/join sep coll))
   #_([start end coll]
-   (loop [sb (StringBuffer. (str start))
-          coll (seq coll)]
-     (if-not (nil? coll)
-       (recur (j/call sb :append (str (first coll))) (next coll))
-       ^string (do (j/call sb :append (str end))
-                   (j/call sb :toString)))))
+     (loop [sb (StringBuffer. (str start))
+            coll (seq coll)]
+       (if-not (nil? coll)
+         (recur (j/call sb :append (str (first coll))) (next coll))
+         ^string (do (j/call sb :append (str end))
+                     (j/call sb :toString)))))
   ([sep f coll]
    (loop [sb (StringBuffer.)
           coll (seq coll)]
@@ -513,15 +514,13 @@
                (j/call sb :append sep))
              (recur sb coll)))
        ^string (do (j/call sb :append (str end))
-                   (j/call sb :toString))))) )
+                   (j/call sb :toString))))))
 
 (defn big-int [n]
   (js/BigInt n))
 
-
 (defn str-surround [start end s]
   (str start s end))
-
 
 (defn byte-array
   ([size-or-seq] (if (seqable? size-or-seq)

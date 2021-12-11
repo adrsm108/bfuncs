@@ -87,7 +87,9 @@
        :chip-container {:display "flex"
                         :flex-flow "row wrap"
                         :justify-content "center"
-                        $chip-like {:margin [[0 (spacing 0.5) (spacing 1)]]}}
+                        :gap (spacing 1)
+                        ;[[0 (spacing 0.5) (spacing 1)]]
+                        }
        :unsetti {:appearance "unset" :color "unset" :word-spacing "unset" :text-rendering "unset"
                  :text-transform "unset" :text-indent "unset" :text-shadow "unset" :display "unset"
                  :text-align "unset" :cursor "unset" :align-items "unset" :background-color "unset"
@@ -313,6 +315,7 @@
         .toggle-button-container {:display "flex"
                                   :flex-direction "column"}}
        :coverage-table {:font-size "1rem"
+                        :overflow "auto"
                         .layout-container {:display "flex"
                                            :flex-flow "row wrap"
                                            :gap (spacing 1)
@@ -704,7 +707,11 @@
                              .spacer] {:transition (create-transition "background-color")}}}}}
 
        :expressions-group
-       {>.content {:min-height (calc (+ (* 1.08 1.21 1.2 "1rem")
+       {>.group-label {:display "flex"
+                       ;:justify-content "space-between"
+                       >.steps-button {:margin-left (spacing 2)}
+                       }
+        >.content {:min-height (calc (+ (* 1.08 1.21 1.2 "1rem")
                                         [(spacing 4) :px]
                                         "1em"))
                    :display "grid"
@@ -1065,7 +1072,6 @@
                            >.variables-container {:display "flex"
                                                   :flex-flow "row wrap"
                                                   :justify-content "center"
-
                                                   $chip-like
                                                   {:margin [[0 (spacing 1) (spacing 1) 0]]}}}
                           }

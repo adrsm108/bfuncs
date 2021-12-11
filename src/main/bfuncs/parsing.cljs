@@ -139,12 +139,12 @@
   ([bexpr] (bexpr->bobj bexpr identity))
   ([bexpr vf]
    ((fn go [bexpr]
-      (let-case [op (-> bexpr first keyword)]
-        :expr (go (second bexpr))
-        :var (vf (second bexpr))
-        (if-let [f (operator op)]
-          (apply f (map go (rest bexpr)))
-    (vf (second bexpr)))))
+      (let [[op operands] (operation-operands bexpr)]
+        (case op
+          :expr (go (first operands))
+          :var (vf (first operands))
+          (if-let [f (operator op)]
+            (apply f (map go operands))))))
     bexpr)))
 
 (defn- xor

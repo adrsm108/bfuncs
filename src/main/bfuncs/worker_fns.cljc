@@ -7,10 +7,6 @@
    [cljs.util :refer [debug-prn]]
    ))
 
-(defn echo [label x]
-  (println label)
-  (prn x))
-
 #_(defmacro inspect-env
     ([] (throw-ex-arg "got: \n"
                       (binding [*print-level* 5] (with-out-str (fipp/pprint &env)))))
@@ -22,7 +18,6 @@
     ([keys print-lvl] (throw-ex-arg "got for path " (prn-str keys) ": \n"
                                     (binding [*print-level* print-lvl]
                                       (with-out-str (fipp/pprint (get-in &env keys)))))))
-
 
 (defmacro task [& specs]
   (let [task-name (when (symbol? (first specs))
@@ -42,7 +37,7 @@
   Then, body is evaluated in a context where the worker is bound to worker-binding-form,
   and the result of the task is bound to result-binding-form.
   Returns a port which receives the value of the last body expression.
-  The worker is retured to worker-port after the body has been evaluated."
+  The worker is returned to worker-port after the body has been evaluated."
   (assert-args
    (vector? bindings) "a vector for its bindings"
    (= 4 (count bindings)) "exactly 2 pairs for its bindings, the first for the worker and channel, the second for the task and its result.")

@@ -42,11 +42,17 @@
 (defonce !term-parse-opts (r/atom {:binary false}))
 (defonce !parsed-expression (r/atom nil))
 (defonce !parsed-variables (r/atom nil))
+(defonce !parsed-terms (r/atom nil))
 (defonce !minimal-expressions (r/atom nil))
-(defonce !results-ready (r/atom false))
+(defonce !results-type (r/atom false))
+(defonce !steps-target (r/atom nil))
 (defonce !minimal-sops (r/atom nil))
 (defonce !minimal-poss (r/atom nil))
 (defonce !anf (r/atom nil))
+(defonce !function-values (r/atom nil))
+(defonce !function-properties (r/atom nil))
+(defonce !spoof-expressions (r/atom nil))
+
 
 (defn reparse-minterms!
   [state]
@@ -54,10 +60,6 @@
          assoc
          :parse (parse-minterms (:value @state) @!term-parse-opts)))
 
-(defonce !function-values (r/atom nil))
-(defonce !function-properties (r/atom nil))
-
-(defonce !target-form (r/atom :SOP))
 
 (defn- terms-field [{:keys [state label]}] #_terms-field
   [text-field {:class (classes :text-field)
@@ -75,13 +77,11 @@
                :auto-correct "off"
                :spell-check "false"}])
 
-(defonce !spoof-expressions (r/atom nil))
-
 (defn- results-card [{:keys [title]}]
   [card {:class (classes :card)}
    [card-content {:class (classes :card-content :vertical-grid)}
     #_[typography {:variant "h2"}
-     title]
+       title]
     [typography {:variant "h5"} "Function"]
     [expression {:class (classes :typeset-expression)
                  :expandable true}
@@ -105,17 +105,23 @@
                                  (<= n 5) "large"
                                  (<= n 6) "medium"
                                  :else "small")}])])
-    [typography {:variant "h5"} "Minimal Forms"]
+    [typography {:variant "h5"} "Alternate Forms"]
     [expressions-table {:key @!parsed-expression}
      #_[expressions-table-rows {:label "Bum of Pawducts"
                                 :data @!spoof-expressions}]
-     [expressions-table-rows {:label "Sum of Products"
+     [expressions-table-rows {:label "Minimal Sum of Products"
+                              :steps? true
+                              :on-click-steps (fn []
+                                                (log "doing it")
+                                                (toggle! !steps-target :SOP))
                               :data @!minimal-sops}]
-     [expressions-table-rows {:label "Product of Sums"
+     [expressions-table-rows {:label "Minimal Product of Sums"
+                              :steps? true
+                              :on-click-steps #(toggle! !steps-target :POS)
                               :data @!minimal-poss}]
      (if-some [anf @!anf]
-      [expressions-table-rows {:label "Zhegalkin Polynomial"
-                               :data (vector anf)}])]]])
+       [expressions-table-rows {:label "Zhegalkin Polynomial"
+                                :data (vector anf)}])]]])
 
 (defn- minimize-and-stuff [fvals vars]
   (when fvals
@@ -135,7 +141,7 @@
       (reset! !parsed-expression tree)
       (go-task [_worker worker-channel
                 fvals (:function-bytes (->js-fn-strs vars tree) nvars)]
-        (reset! !results-ready true)
+        (reset! !results-type type)
         (reset! !function-values fvals)
         (when fvals
           (minimize-and-stuff fvals vars))
@@ -155,12 +161,16 @@
                      (inc)
                      (Math/log2)
                      (Math/ceil))
-          vars (mapv #(str "x_" % ) (range arity))]
+          vars (mapv #(str "x_" %) (range arity))]
+      (reset! !parsed-variables vars)
+      (reset! !parsed-terms {:type :minterms
+                             :terms (first terms)
+                             :unspecified (second terms)
+                             :term-length arity})
       (go-task [_worker worker-channel
                 fvals (:minterms-bytes terms arity)]
-        (reset! !results-ready true)
+        (reset! !results-type type)
         (reset! !function-values fvals)
-        (reset! !parsed-variables vars)
         (minimize-and-stuff fvals vars)
         (let [{:keys [fully-specified digit-string]}
               (reset! !function-properties
@@ -170,7 +180,34 @@
           (when fully-specified
             (go-task [_worker worker-channel
                       zp (:zhegalkin-polynomial vars digit-string)]
-              (reset! !anf (echod :anf zp)))))))))
+              (reset! !anf (echod :anf zp)))))))
+
+    :maxterms
+    (let [arity (->> terms
+                     (transduce cat max)
+                     (inc)
+                     (Math/log2)
+                     (Math/ceil))
+          vars (mapv #(str "x_" %) (range arity))]
+      (reset! !parsed-variables vars)
+      (reset! !parsed-terms {:type :maxterms
+                             :terms (first terms)
+                             :unspecified (second terms)
+                             :term-length arity})
+      (go-task [_worker worker-channel
+                fvals (:maxterms-bytes terms arity)]
+        (reset! !results-type type)
+        (reset! !function-values fvals)
+        (minimize-and-stuff fvals vars)
+        (let [{:keys [fully-specified digit-string]}
+              (reset! !function-properties
+                      (-> fvals
+                          (functionProperties arity (<= arity 5))
+                          (js->clj :keywordize-keys true)))]
+          (when fully-specified
+            (go-task [_worker worker-channel
+                      zp (:zhegalkin-polynomial vars digit-string)]
+              (reset! !anf (echod :anf zp))))))) ))
 
 (defn- main [{}]
   [:div {:class (classes :root)}
@@ -195,16 +232,18 @@
      [input-card {:on-success handle-success!
                   :on-submit #(reset-nil! !parsed-expression
                                           !parsed-variables
+                                          !parsed-terms
                                           !function-properties
                                           !function-values
                                           !minimal-expressions
                                           !minimal-sops
                                           !minimal-poss
                                           !anf
-                                          ;!results-ready
-                                          )
+                                          !results-type
+                                          !steps-target)
                   :on-failure #(dbg "on failure")}]
-     #_(when @!results-ready
+
+     #_(when @!results-type
          [button-group
           [button {:on-click #(reset! !spoof-expressions nil)}
            "none"]
@@ -218,25 +257,30 @@
            "many"]]
          )
 
-
-
-
-     (when @!results-ready
-       [results-card {:title "Results"
-                      ;:key (str (random-uuid))
-                      }])
+     (when-let [results-type @!results-type]
+       [:div
+        [results-card {:title "Results"
+                       ;:key (str (random-uuid))
+                       }]
+        (when-let [steps-target @!steps-target]
+          [steps-card {:title "Steps"
+                       :results-type results-type
+                       :expr @!parsed-expression
+                       :!vars !parsed-variables
+                       :target-form steps-target
+                       :terms @!parsed-terms}])
+        ])
 
      #_[:textarea {:style {:width "100%"
                            :height 400}
                    :read-only true
                    :value (with-out-str (fipp/pprint (echol :parsedexpr @!parsed-expression)))}
-
         ]
 
-     #_(when @!results-ready
+     #_(when @!results-type
          [:<>
           [:div
-            ()
+           ()
            [typography @!target-form]
            [switch {:checked (= @!target-form :POS)
                     :on-change #(reset! !target-form (if (event-checked %) :POS :SOP))}]]
@@ -252,9 +296,7 @@
          [calibrate {:key base
                      :data (str "\\" (name base))}])
      ]]
-   [notifier {:class (classes :notification)}]
-   ]
-  )
+   [notifier {:class (classes :notification)}]])
 
 (defn app []
   [:<>

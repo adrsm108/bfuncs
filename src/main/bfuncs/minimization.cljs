@@ -4,9 +4,9 @@
    [bfuncs.utils
     :as util
     :refer [echo map-reduce select count-when one? singleton? disjoint? reduce! map-vals
-            minimal-by truth-vecs positions max-set-bit if-first fori
+            minimal-by truth-vecs ->truth-vecs positions max-set-bit if-first fori
             let-case unless-zero assoc-some array-like? condf condo->>
-            truth-vecs str-join big-int rrange byte-array? byte-array
+            str-join big-int rrange byte-array? byte-array
             post-swap! get-meta mp echol applied]]
    [bfuncs.algebra :as alg
     :refer [|| && ! ||* &&* <+>
@@ -18,7 +18,8 @@
    [clojure.string :as str]
    ["/bfuncs/TruthTable" :default TruthTable]
    ["/bfuncs/jsUtils" :refer [functionBytes, bytesToBigInt]]
-   [applied-science.js-interop :as j]))
+   [applied-science.js-interop :as j]
+   [clojure.set :as set]))
 
 
 (defn- var-vector [maps]
@@ -70,7 +71,6 @@
      (let [f (->js-fn vars expr)]
        (filter f (truth-vecs (count vars) meta?))))))
 
-
 (defn maxterms
   ([vars expr] (maxterms vars expr false))
   ([vars expr meta?]
@@ -113,6 +113,13 @@
                x))
       x)))
 
+(defn- int->minterm
+  [int arity]
+  (mapv #(bit-test int %) (rrange arity)))
+
+(defn- int->maxterm [int arity]
+  (mapv #(not (bit-test int %)) (rrange arity)))
+
 (defn- maxterm->int [maxterm]
   (loop [term (seq maxterm)
          i (dec (count term))
@@ -124,6 +131,7 @@
                (bit-set x i)
                x))
       x)))
+
 
 (defn- term->int [term]
   (loop [term (seq term)
@@ -740,24 +748,61 @@
            terms (sort compare-implicants terms)
            [primes covers] (covering-sets primes terms)
            [essentials remaining] (separate-essentials-indexed covers)]
-       (mp :terms (mapv term->int terms)
-           :term-length (count (first terms))
-           steps primes essentials remaining covers)))))
+       (mp steps primes essentials remaining covers)))))
 
-(defn minimization-steps
-  [target-form vars expr]
-  (let [bobj (bexpr->bobj expr)
-        [get-terms term-type prime-type]
-        (case target-form
-          :SOP [minterms "minterm" "implicant"]
-          :POS [maxterms "maxterm" "implicate"])]
-    (assoc (quine-mccluskey-meta (get-terms vars bobj true))
+(defn minimization-steps-from-expr [target-form vars expr]
+  (let [[term-type term-word prime-word] (case target-form
+                                           :SOP [:minterms "minterm" "implicant"]
+                                           :POS [:maxterms "maxterm" "implicate"])
+        bobj (bexpr->bobj expr)
+        truth-vecs ((if (= term-type :minterms) minterms maxterms) vars bobj true)]
+    (assoc (quine-mccluskey-meta truth-vecs)
       :target-form target-form
-      :term-type term-type
-      :prime-type prime-type
+      :term-word term-word
+      :prime-word prime-word
       :expr expr
       :indexed-expr (index-bobj vars bobj)
-      :vars vars)))
+      :vars vars
+      :input-type :expression
+      :term-type term-type
+      :terms (mapv term->int truth-vecs)
+      :term-length (count (first truth-vecs))
+      )
+    )
+  )
+
+(defn minimization-steps-from-terms
+  [target-form vars {input-terms :terms
+                     :keys [unspecified type term-length]}]
+  (let [[term-type term-word prime-word] (case target-form
+                                           :SOP [:minterms "minterm" "implicant"]
+                                           :POS [:maxterms "maxterm" "implicate"])
+        terms (if (= term-type type)
+                input-terms
+                (let [term-set (into (set (set input-terms)) unspecified)]
+                  (into [] (remove term-set) (range (bit-set 0 term-length)))))]
+    (assoc (quine-mccluskey-meta (->truth-vecs terms term-length true)
+                                 (->truth-vecs unspecified term-length true))
+      :target-form target-form
+      :term-word term-word
+      :prime-word prime-word
+      :vars vars
+      :unspecified unspecified
+      :terms terms
+      :input-terms input-terms
+      :input-type type
+      :term-type term-type
+      :term-length term-length
+      )
+    )
+  )
+
+(defn minimization-steps
+  ([target-form vars expr-or-terms]
+   ((if (map? expr-or-terms) minimization-steps-from-terms minimization-steps-from-expr)
+    target-form
+    vars
+    expr-or-terms)))
 
 (defn- decode-selection
   ([selection] (decode-selection selection nil))

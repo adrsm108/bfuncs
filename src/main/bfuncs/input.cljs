@@ -4,7 +4,7 @@
    [bfuncs.style :refer [classes]]
    [applied-science.js-interop :as j]
    [bfuncs.utils :refer [echol echo mp toggle! event-value let-case reduce!]]
-   [bfuncs.typesetting :refer [$ format-latex-var minterms-expression maxterms-expression expression]]
+   [bfuncs.typesetting :refer [$ format-latex-var terms-expression expression]]
    [reagent-material-ui.core.typography :refer [typography]]
    [reagent-material-ui.core.button-base :refer [button-base]]
    [reagent-material-ui.core.click-away-listener :refer [click-away-listener]]
@@ -153,7 +153,7 @@
         [expression-field {:marked-var marked-var
                            :on-parse handle-parse
                            :issues issues
-                           :initial-doc (echol "default-text" default-text)}]
+                           :initial-doc default-text}]
         [expression-section (do
                               (echol porse)
                               (if errors?
@@ -193,8 +193,8 @@
                      :allow-empty true}]
        [terms-section "Minterms" terms]
        [terms-section "Unspecified" u-terms]
-       [minterms-expression {:minterms terms
-                             :unspecified u-terms}]])))
+       (when-not (and (empty? terms) (empty? u-terms))
+         [terms-expression {:minterms terms :unspecified u-terms}])])))
 
 (defn- maxterms-input [{:keys [class]}]
   (with-let [default-text (get-in @!maxterms-field-state [:parse :text])
@@ -226,10 +226,11 @@
                      :on-parse handle-u-maxterms-parse
                      :initial-doc default-u-text
                      :allow-empty true}]
-       [terms-section "Minterms" terms]
+       [terms-section "Maxterms" terms]
        [terms-section "Unspecified" u-terms]
-       [maxterms-expression (echo :ppop {:maxterms terms
-                                         :unspecified u-terms})]])))
+       (when-not (and (empty? (echol :this-terms terms)) (empty? (echol :this-u-terms u-terms)))
+         [terms-expression {:maxterms terms :unspecified u-terms}])])))
+
 
 (defn update-issues! [!state]
   (swap! !state #(assoc % :issues

@@ -332,7 +332,7 @@
 
 (def bases
   {:var ["x" "variable" 12.47]
-   :pvar ["\\mathfrak{P}" "prime variable" 13.98]
+   :pvar ["Q" "prime variable" 13.98]
    :cvar ["C" "coverage variable" 15.58]
    :pimplicant ["p" "prime implicant" 10.97]
    :pimplicate ["P" "prime implicate" 13.98]

@@ -17,6 +17,11 @@
                                                          :unspecified unspecified})
                                                  arity)]
                         (return bytes [(j/get bytes :buffer)])))
+   "maxterms-bytes" (task [return [off-terms unspecified] arity]
+                      (let [bytes (functionBytes (j/lit {:off off-terms
+                                                         :unspecified unspecified})
+                                                 arity)]
+                        (return bytes [(j/get bytes :buffer)])))
 
    "test-task" (task [return x]
                  (return x))

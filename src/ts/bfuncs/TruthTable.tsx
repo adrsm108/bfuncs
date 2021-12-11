@@ -1,9 +1,9 @@
-import React, {Component} from "react";
+import React, { Component } from "react";
 import * as d3 from "d3";
-import {BaseType, Selection} from "d3";
+import { BaseType, Selection } from "d3";
 import clsx from "clsx";
-import {Pagination} from "@material-ui/lab";
-import {BooleanFunctionSpec, bytesToBigInt, functionBytes} from "./jsUtils";
+import { Pagination } from "@material-ui/lab";
+import { BooleanFunctionSpec, bytesToBigInt, functionBytes } from "./jsUtils";
 
 interface MarginSpec {
   top: number;
@@ -38,10 +38,9 @@ interface TruthTableState {
 }
 
 function computeStateFromProps(props: TruthTableProps): TruthTableState {
-  let {f, arity, chunkSizeExponent, size, fullySpecified} = props;
+  let { f, arity, chunkSizeExponent, size, fullySpecified } = props;
   chunkSizeExponent ??= TruthTable.sizes[size].chunkSizeExponent;
   const values = f instanceof Int8Array ? f : functionBytes(f, arity);
-  console.log("arity", arity);
   const cse = Math.min(arity, chunkSizeExponent);
   const rowsPerChunk = 1 << cse;
   return {
@@ -72,11 +71,11 @@ class TruthTable extends Component<TruthTableProps, TruthTableState> {
     maxArity: 16,
     fullySpecified: false,
   };
-  static sizes: {small: SizeSpec; medium: SizeSpec; large: SizeSpec} = {
+  static sizes: { small: SizeSpec; medium: SizeSpec; large: SizeSpec } = {
     large: {
       blockSize: 40,
       blockMargin: 4,
-      margin: {top: 0, left: 40, bottom: 0, right: 0},
+      margin: { top: 0, left: 40, bottom: 0, right: 0 },
       tickPadding: 8,
       chunkSizeExponent: 4,
       chunksPerPage: 2,
@@ -84,7 +83,7 @@ class TruthTable extends Component<TruthTableProps, TruthTableState> {
     medium: {
       blockSize: 26,
       blockMargin: 2,
-      margin: {top: 0, left: 32, bottom: 0, right: 0},
+      margin: { top: 0, left: 32, bottom: 0, right: 0 },
       tickPadding: 6,
       chunkSizeExponent: 5,
       chunksPerPage: 2,
@@ -92,7 +91,7 @@ class TruthTable extends Component<TruthTableProps, TruthTableState> {
     small: {
       blockSize: 14,
       blockMargin: 1,
-      margin: {top: 0, left: 32, bottom: 0, right: 0},
+      margin: { top: 0, left: 32, bottom: 0, right: 0 },
       tickPadding: 4,
       chunkSizeExponent: 6,
       chunksPerPage: 4,
@@ -129,10 +128,7 @@ class TruthTable extends Component<TruthTableProps, TruthTableState> {
       chunksPerPage = bst.chunksPerPage,
     } = this.props;
 
-
-    const {values, numChunks, rowsPerChunk, page} = this.state;
-
-    console.log(values, rowsPerChunk);
+    const { values, numChunks, rowsPerChunk, page } = this.state;
 
     const nCols = arity + 1;
     const width = blockSize * nCols + margin.left + margin.right;
@@ -157,7 +153,11 @@ class TruthTable extends Component<TruthTableProps, TruthTableState> {
             .axisLeft(y)
             .tickValues(d3.range(0, rowsPerChunk, 4))
             .tickFormat((x) =>
-              String(page * rowsPerPage + chunk * rowsPerChunk + (typeof x === "number" ? x : x.valueOf()))
+              String(
+                page * rowsPerPage +
+                  chunk * rowsPerChunk +
+                  (typeof x === "number" ? x : x.valueOf())
+              )
             )
             .tickSize(0)
             .tickPadding(tickPadding)
@@ -250,12 +250,16 @@ class TruthTable extends Component<TruthTableProps, TruthTableState> {
   removeSelection = (exit: Selection<BaseType, any, any, unknown>) => exit.remove();
 
   changePage = (event: React.ChangeEvent<unknown>, value: number) => {
-    this.setState({page: value - 1});
+    this.setState({ page: value - 1 });
   };
 
   render() {
-    const {arity, maxArity, chunksPerPage = TruthTable.sizes[this.props.size].chunksPerPage} = this.props;
-    const {page, numChunks} = this.state;
+    const {
+      arity,
+      maxArity,
+      chunksPerPage = TruthTable.sizes[this.props.size].chunksPerPage,
+    } = this.props;
+    const { page, numChunks } = this.state;
     return (
       <div className={clsx("TruthTable", this.props.className, this.props.size)}>
         {arity > maxArity ? (
@@ -279,7 +283,11 @@ class TruthTable extends Component<TruthTableProps, TruthTableState> {
     );
   }
 
-  componentDidUpdate(prevProps: Readonly<TruthTableProps>, prevState: Readonly<TruthTableState>, snapshot?: any) {
+  componentDidUpdate(
+    prevProps: Readonly<TruthTableProps>,
+    prevState: Readonly<TruthTableState>,
+    snapshot?: any
+  ) {
     const props = this.props;
     if (
       prevProps.f !== props.f ||

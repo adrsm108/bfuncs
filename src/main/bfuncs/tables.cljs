@@ -31,6 +31,7 @@
    [reagent-material-ui.icons.expand-less-outlined :refer [expand-less-outlined]]
    [reagent-material-ui.icons.expand-more-outlined :refer [expand-more-outlined]]
    [reagent-material-ui.icons.last-page-outlined :refer [last-page-outlined]]
+   [reagent-material-ui.icons.arrow-forward-outlined :refer [arrow-forward-outlined]]
    [reagent-material-ui.core.collapse :refer [collapse]]
    [reagent-material-ui.core.list :refer [list]]
    ["@material-ui/core/List" :default MuiList]
@@ -51,11 +52,22 @@
      [linear-progress progress-props]]
     (finally (js/clearTimeout timeout-id))))
 
-(defn- row-group [{:keys [group-name data]} buttons]
+(defn- row-group [{:keys [group-name data steps? on-click-steps]} buttons]
   [:div {:class (classes :expressions-group)}
    [typography {:variant "subtitle1"
                 :class "group-label"}
-    group-name]
+    group-name
+    (if steps?
+      [button {:variant "outlined"
+               :class "steps-button"
+               :size "small"
+               :end-icon (r/as-element [arrow-forward-outlined])
+               :color "primary"
+               :on-click on-click-steps}
+       "Show Steps"]
+      )
+
+    ]
    [:div {:class "content"}
     [switch-transition
      (if (empty? data)
@@ -79,13 +91,15 @@
           buttons (conj buttons))])]]])
 
 
-(defn expressions-table-rows [{:keys [data label chunk-size]
+(defn expressions-table-rows [{:keys [data label chunk-size steps? on-click-steps]
                                :or {chunk-size 4}}]
   (with-let [!rows-visible (r/atom chunk-size)]
     (let [row-count (count data)
           rows-visible @!rows-visible]
       [row-group {:group-name label
-                  :data (take rows-visible data)}
+                  :data (take rows-visible data)
+                  :steps? steps?
+                  :on-click-steps on-click-steps}
        (when (> row-count chunk-size)
          (let [change-rows-fn (fn [x]
                                 (let [op! (if (fn? x) swap! reset!)]
