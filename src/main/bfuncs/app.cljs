@@ -6,7 +6,7 @@
    [fipp.clojure :as fipp]
    [cljs.core.async :refer [>! <!] :refer-macros [go]]
    [bfuncs.algebra :refer [! || && <*> <+>]]
-   [bfuncs.input :refer [expression-input input-card]]
+   [bfuncs.input :refer [expression-input input-card query-expression-parse query-terms-parse]]
    [bfuncs.globals :refer [notifier notify!]]
    [bfuncs.parsing :refer [parse-minterms variables bexpr->bobj ->js-fn ->js-fn-strs]]
    [bfuncs.steps-card :refer [steps-card]]
@@ -14,8 +14,9 @@
    [bfuncs.tables :refer [expressions-table expressions-table-rows]]
    [bfuncs.typesetting :refer [typesetting-menu expression $ $$ operator-calibration format-latex-var]]
    [bfuncs.transitions :refer [switch-transition]]
-   [bfuncs.utils :refer [event-value event-checked reset-nil! toggle! dbg echod
-                         for' fori' echol go-reset! log maximum]]
+   [bfuncs.utils :refer [event-value event-checked reset-nil! toggle! dbg echod let-case
+                         for' fori' echol go-reset! log maximum pass]]
+   [bfuncs.results :refer [results-card]]
    [bfuncs.worker-fns :refer [create-worker-channel] :refer-macros [go-task]]
    ;region [mui components]
    [reagent-material-ui.core.app-bar :refer [app-bar]]
@@ -32,11 +33,13 @@
    [reagent-material-ui.core.toolbar :refer [toolbar]]
    [reagent-material-ui.core.typography :refer [typography]]
    [reagent-material-ui.icons.tune-outlined :refer [tune-outlined]]
-   [reagent-material-ui.styles :refer [theme-provider]] ;endregion
-   [reagent-material-ui.icons.git-hub :refer [git-hub]]
-   ["/bfuncs/TruthTable" :default TruthTable]
-   ["/bfuncs/FunctionSummary" :refer [RadialChart]]
-   ["/bfuncs/jsUtils" :refer [functionBytes, bytesToBigInt, functionProperties]]))
+   [reagent-material-ui.icons.settings-outlined :refer [settings-outlined]]
+   [reagent-material-ui.styles :refer [theme-provider]]
+   [reagent-material-ui.core.circular-progress :refer [circular-progress]]
+   [reagent-material-ui.core.fade :refer [fade]]
+   [reagent-material-ui.icons.git-hub :refer [git-hub]] ;endregion
+   ["react-router-dom" :refer [BrowserRouter Switch Route Link Redirect useHistory useLocation withRouter]]
+   ["/bfuncs/jsUtils" :refer [functionBytes bytesToBigInt functionProperties]]))
 
 (def ^:private num-workers 1)
 (def ^:private worker-channel (create-worker-channel num-workers))
@@ -54,13 +57,29 @@
 (defonce !function-values (r/atom nil))
 (defonce !function-properties (r/atom nil))
 (defonce !spoof-expressions (r/atom nil))
+(defonce !app-stage (r/atom :input)) ; :input, :results, or :steps
+(defonce !redirect (r/atom nil))
+(defonce !processed (atom false))
 
+(defn reset-state! []
+  (reset-nil! !parsed-expression
+              !parsed-variables
+              !parsed-terms
+              !function-properties
+              !function-values
+              !minimal-expressions
+              !minimal-sops
+              !minimal-poss
+              !anf
+              !results-type
+              !steps-target))
 
 (defn reparse-minterms!
   [state]
   (swap! state
          assoc
          :parse (parse-minterms (:value @state) @!term-parse-opts)))
+
 
 
 (defn- terms-field [{:keys [state label]}] #_terms-field
@@ -79,52 +98,6 @@
                :auto-correct "off"
                :spell-check "false"}])
 
-(defn- results-card [{:keys [title]}]
-  [card {:class (classes :results-card)}
-   [card-content {:class (classes :card-content :vertical-grid)}
-    #_[typography {:variant "h2"}
-       title]
-    [typography {:variant "h5"} "Function"]
-    [expression {:class (classes :typeset-expression)
-                 :expandable true}
-     @!parsed-expression]
-    (let [n (count @!parsed-variables)
-          {:keys [index term-counts]} @!function-properties]
-      [:<>
-       (when index
-         [$$ (j/call index :toLocaleString)])
-       (when term-counts
-         [:> RadialChart {:class (classes :radial-chart)
-                          :counts term-counts}])
-
-       [typography {:variant "h5"} "Truth Table"]
-       (when-some [function-values @!function-values]
-         [:> TruthTable {:f function-values
-                         :arity n
-                         :fullySpecified true
-                         :class (classes :truth-table)
-                         :size (cond
-                                 (<= n 5) "large"
-                                 (<= n 6) "medium"
-                                 :else "small")}])])
-    [typography {:variant "h5"} "Alternate Forms"]
-    [expressions-table {:key @!parsed-expression}
-     #_[expressions-table-rows {:label "Bum of Pawducts"
-                                :data @!spoof-expressions}]
-     [expressions-table-rows {:label "Minimal Sum of Products"
-                              :steps? true
-                              :on-click-steps (fn []
-                                                (log "doing it")
-                                                (toggle! !steps-target :SOP))
-                              :data @!minimal-sops}]
-     [expressions-table-rows {:label "Minimal Product of Sums"
-                              :steps? true
-                              :on-click-steps #(toggle! !steps-target :POS)
-                              :data @!minimal-poss}]
-     (if-some [anf @!anf]
-       [expressions-table-rows {:label "Zhegalkin Polynomial"
-                                :data (vector anf)}])]]])
-
 (defn- minimize-and-stuff [fvals vars]
   (when fvals
     (go-task [_worker worker-channel
@@ -134,84 +107,130 @@
               min-poss (:min-poss vars fvals)]
       (reset! !minimal-poss min-poss))))
 
-(defn handle-success! [{:keys [type vars tree terms]}]
-  (case type
+(defn handle-success!
+  ([results] (handle-success! (echol :reszz results) pass))
+  ([{:keys [type vars tree terms text]} callback]
+   (case type
 
-    :expression
-    (let [nvars (count vars)]
-      (reset! !parsed-variables vars)
-      (reset! !parsed-expression tree)
-      (go-task [_worker worker-channel
-                fvals (:function-bytes (->js-fn-strs vars tree) nvars)]
-        (reset! !results-type type)
-        (reset! !function-values fvals)
-        (when fvals
-          (minimize-and-stuff fvals vars))
-        (let [{:keys [fully-specified digit-string]}
-              (reset! !function-properties
-                      (-> fvals
-                          (functionProperties nvars (<= nvars 5))
-                          (js->clj :keywordize-keys true)))]
-          (when fully-specified
-            (go-task [_worker worker-channel
-                      zp (:zhegalkin-polynomial vars digit-string)]
-              (reset! !anf (echod :anf zp)))))))
+     :expression
+     (let [nvars (count vars)]
+       (reset! !parsed-variables vars)
+       (reset! !parsed-expression tree)
+       (go-task [_worker worker-channel
+                 fvals (:function-bytes (->js-fn-strs vars tree) nvars)]
+         (reset! !redirect {:to {:pathname "/result"
+                                 :search (str "?t=expression&e=" (js/encodeURIComponent text))}})
+         (reset! !results-type type)
+         (reset! !function-values fvals)
+         (when fvals (minimize-and-stuff fvals vars))
+         (let [{:keys [fully-specified digit-string]}
+               (reset! !function-properties
+                       (-> fvals
+                           (functionProperties nvars (<= nvars 5))
+                           (js->clj :keywordize-keys true)))]
+           (when fully-specified
+             (go-task [_worker worker-channel
+                       zp (:zhegalkin-polynomial vars digit-string)]
+               (reset! !anf (echod :anf zp)))))
+         (callback fvals)
+         ))
 
-    :minterms
-    (let [arity (->> terms
-                     (transduce cat max)
-                     (inc)
-                     (Math/log2)
-                     (Math/ceil))
-          vars (mapv #(str "x_" %) (range arity))]
-      (reset! !parsed-variables vars)
-      (reset! !parsed-terms {:type :minterms
-                             :terms (first terms)
-                             :unspecified (second terms)
-                             :term-length arity})
-      (go-task [_worker worker-channel
-                fvals (:minterms-bytes terms arity)]
-        (reset! !results-type type)
-        (reset! !function-values fvals)
-        (minimize-and-stuff fvals vars)
-        (let [{:keys [fully-specified digit-string]}
-              (reset! !function-properties
-                      (-> fvals
-                          (functionProperties arity (<= arity 5))
-                          (js->clj :keywordize-keys true)))]
-          (when fully-specified
-            (go-task [_worker worker-channel
-                      zp (:zhegalkin-polynomial vars digit-string)]
-              (reset! !anf (echod :anf zp)))))))
+     :minterms
+     (let [arity (->> terms
+                      (transduce cat max)
+                      (inc)
+                      (Math/log2)
+                      (Math/ceil))
+           vars (mapv #(str "x_" %) (range arity))]
+       (reset! !parsed-variables vars)
+       (reset! !parsed-terms {:type :minterms
+                              :terms (first terms)
+                              :unspecified (second terms)
+                              :term-length arity})
+       (go-task [_worker worker-channel
+                 fvals (:minterms-bytes terms arity)]
+         (reset! !redirect
+                 (let [js-terms (clj->js terms)]
+                   {:to {:pathname "/result"
+                         :search (str "?t=minterms"
+                                      "&m="
+                                      (->> js-terms
+                                           (first)
+                                           (js/encodeURIComponent))
+                                      "&d="
+                                      (->> js-terms
+                                           (second)
+                                           (js/encodeURIComponent)))}}))
+         (reset! !results-type type)
+         (reset! !function-values fvals)
+         (minimize-and-stuff fvals vars)
+         (let [{:keys [fully-specified digit-string]}
+               (reset! !function-properties
+                       (-> fvals
+                           (functionProperties arity (<= arity 5))
+                           (js->clj :keywordize-keys true)))]
+           (when fully-specified
+             (go-task [_worker worker-channel
+                       zp (:zhegalkin-polynomial vars digit-string)]
+               (reset! !anf (echod :anf zp)))))
+         (callback fvals)
+         ))
 
-    :maxterms
-    (let [arity (->> terms
-                     (transduce cat max)
-                     (inc)
-                     (Math/log2)
-                     (Math/ceil))
-          vars (mapv #(str "x_" %) (range arity))]
-      (reset! !parsed-variables vars)
-      (reset! !parsed-terms {:type :maxterms
-                             :terms (first terms)
-                             :unspecified (second terms)
-                             :term-length arity})
-      (go-task [_worker worker-channel
-                fvals (:maxterms-bytes terms arity)]
-        (reset! !results-type type)
-        (reset! !function-values fvals)
-        (minimize-and-stuff fvals vars)
-        (let [{:keys [fully-specified digit-string]}
-              (reset! !function-properties
-                      (-> fvals
-                          (functionProperties arity (<= arity 5))
-                          (js->clj :keywordize-keys true)))]
-          (when fully-specified
-            (go-task [_worker worker-channel
-                      zp (:zhegalkin-polynomial vars digit-string)]
-              (reset! !anf (echod :anf zp))))))) ))
+     :maxterms
+     (let [arity (->> terms
+                      (transduce cat max)
+                      (inc)
+                      (Math/log2)
+                      (Math/ceil))
+           vars (mapv #(str "x_" %) (range arity))]
+       (reset! !parsed-variables vars)
+       (reset! !parsed-terms {:type :maxterms
+                              :terms (first terms)
+                              :unspecified (second terms)
+                              :term-length arity})
+       (go-task [_worker worker-channel
+                 fvals (:maxterms-bytes terms arity)]
+         (reset! !redirect
+                 (let [js-terms (clj->js terms)]
+                   {:to {:pathname "/result"
+                         :search (str "?t=maxterms"
+                                      "&m="
+                                      (->> js-terms
+                                           (first)
+                                           (js/encodeURIComponent))
+                                      "&d="
+                                      (->> js-terms
+                                           (second)
+                                           (js/encodeURIComponent)))}}))
+         (reset! !results-type type)
+         (reset! !function-values fvals)
+         (minimize-and-stuff fvals vars)
+         (let [{:keys [fully-specified digit-string]}
+               (reset! !function-properties
+                       (-> fvals
+                           (functionProperties arity (<= arity 5))
+                           (js->clj :keywordize-keys true)))]
+           (when fully-specified
+             (go-task [_worker worker-channel
+                       zp (:zhegalkin-polynomial vars digit-string)]
+               (reset! !anf (echod :anf zp)))))
+         (callback fvals))))))
 
-(defn- main [{}]
+(defn- process-from-url! []
+  (let [search-params (echol :query (j/get (js/URL. js/document.location) :searchParams))]
+    (if-some [res (let-case [t (j/call search-params :get "t")]
+                    "expression" (query-expression-parse
+                                  (j/call search-params :get "e"))
+                    ("minterms"
+                     "maxterms") (query-terms-parse
+                                  (j/call search-params :get "m")
+                                  (j/call search-params :get "d")
+                                  (keyword t))
+                    nil)]
+      (handle-success! res #(reset! !processed true))
+      (reset! !redirect {:to "/"}))))
+
+(defn main [{}]
   [:div {:class (classes :root)}
    [app-bar {:color "default"
              :class (classes :app-bar)
@@ -219,37 +238,91 @@
     [toolbar {:class (classes :toolbar)}
      [typography {:variant "h4"
                   :no-wrap true
-                  :class (classes :title)}
-      "Boolean Function Explorer"]
+                  :class (classes :title)
+                  }
+      [:a {:href "/"}
+       "Boolean Function Explorer"]]
      [icon-button {:color "inherit"}
       [help-outline-outlined
        {:font-size "inherit"}]]
-     [icon-button {:color "inherit"}
+     [icon-button {:color "inherit"
+                   :href "https://github.com/adrsm108/bfuncs"
+                   :target "_blank"
+                   :rel "noreferrer noopener"}
       [git-hub]]
      [icon-button {:edge "end"
                    :color "inherit"
                    :on-click #(toggle! !typesetting-menu-open)
                    :class (classes :typesetting-menu-button)}
-      [tune-outlined]]]]
+      [settings-outlined]]]]
 
    [typesetting-menu {:open @!typesetting-menu-open
                       :on-close #(reset! !typesetting-menu-open false)}]
    [:main {:class (classes :main)}
     [container {:max-width "md",
                 :class "main-container"}
-     [input-card {:on-success handle-success!
-                  :on-submit #(reset-nil! !parsed-expression
-                                          !parsed-variables
-                                          !parsed-terms
-                                          !function-properties
-                                          !function-values
-                                          !minimal-expressions
-                                          !minimal-sops
-                                          !minimal-poss
-                                          !anf
-                                          !results-type
-                                          !steps-target)
-                  :on-failure #(dbg "on failure")}]
+     [:> Switch
+      [:> Route {:path "/" :exact true}
+       [fade {:in true}
+        [input-card {:on-success handle-success!
+                     :on-submit (fn []
+                                  (reset! !processed true)
+                                  (reset-state!)
+                                  )
+                     :on-failure #(dbg "on failure")}]]]
+      [:> Route {:path "/result"}
+       [switch-transition
+        (if @!processed
+          [fade {:key "/result"}
+           [results-card {:title "Results"
+                          :expr @!parsed-expression
+                          :vars @!parsed-variables
+                          :terms @!parsed-terms
+                          :function-properties @!function-properties
+                          :function-values @!function-values
+                          :minimal-sops @!minimal-sops
+                          :minimal-poss @!minimal-poss
+                          :anf @!anf
+                          :show-steps (fn [target-form]
+                                        (reset! !steps-target target-form)
+                                        (reset! !redirect {:to {:pathname "/steps"
+                                                                :search (j/get (js/URL. js/document.location) :search)}
+                                                           :push true}))
+                          :results-type @!results-type}]]
+          (do
+            (process-from-url!)
+            [fade {:style {:transition-delay "800ms"}
+                   :key "result-progress"}
+             [:div {:class (classes :process-progress)}
+              [circular-progress {:size "10vw"}]]
+             ])
+          )
+        ]
+
+       ]
+      [:> Route {:path "/steps"}
+       [switch-transition
+        (if @!processed
+          [fade {:key "/steps"}
+           [steps-card {:title "Steps"
+                        :results-type @!results-type
+                        :expr @!parsed-expression
+                        :!vars !parsed-variables
+                        :target-form @!steps-target
+                        :terms @!parsed-terms}]]
+          (do
+            (process-from-url!)
+            [fade {:style {:transition-delay "800ms"}
+                   :key "steps-progress"}
+             [:div {:class (classes :process-progress)}
+              [circular-progress {:size "10vw"}]]]))
+        ]
+
+       ]
+      ]
+
+
+
 
      #_(when @!results-type
          [button-group
@@ -265,19 +338,7 @@
            "many"]]
          )
 
-     (when-let [results-type @!results-type]
-       [:div
-        [results-card {:title "Results"
-                       ;:key (str (random-uuid))
-                       }]
-        (when-let [steps-target @!steps-target]
-          [steps-card {:title "Steps"
-                       :results-type results-type
-                       :expr @!parsed-expression
-                       :!vars !parsed-variables
-                       :target-form steps-target
-                       :terms @!parsed-terms}])
-        ])
+
 
      #_[:textarea {:style {:width "100%"
                            :height 400}
@@ -303,11 +364,21 @@
      #_(for' [base (keys ts-data/bases)]
          [calibrate {:key base
                      :data (str "\\" (name base))}])
-     ]]
-   [notifier {:class (classes :notification)}]])
+     ]
+    (when-some [redirect @!redirect]
+      (reset-nil! !redirect)
+      [:> Redirect redirect])
+    ]
+   [notifier {:class (classes :notification)}]]
+  )
+
+
+
 
 (defn app []
   [:<>
    [css-baseline]
    [theme-provider theme
     [((with-styles app-style) main)]]])
+
+
