@@ -5,7 +5,7 @@ import {
   StateEffect,
   StateEffectType,
   StateField,
-  Transaction,
+  Transaction
 } from "@codemirror/state";
 import { Decoration, DecorationSet, EditorView, placeholder } from "@codemirror/view";
 import { RangeSet, RangeSetBuilder } from "@codemirror/rangeset";
@@ -15,7 +15,7 @@ import {
   HighlightStyle,
   styleTags,
   Tag,
-  tags as t,
+  tags as t
 } from "@codemirror/highlight";
 import { LanguageSupport, LezerLanguage, syntaxTree } from "@codemirror/language";
 // @ts-ignore
@@ -43,7 +43,7 @@ function logParseTree(state) {
       if (stack.length > 1) {
         stack[stack.length - 2].push(stack.pop());
       }
-    },
+    }
   });
 }
 
@@ -99,10 +99,10 @@ function bexpr() {
             not: t.special(t.logicOperator),
             notKey: [t.operatorKeyword, t.special(t.logicOperator)],
             var: t.variableName,
-            neg: t.special(t.logicOperator),
-          }),
-        ],
-      }),
+            neg: t.special(t.logicOperator)
+          })
+        ]
+      })
     })
   );
 }
@@ -117,10 +117,10 @@ function terms() {
             Bin: binInt,
             Oct: octInt,
             Hex: hexInt,
-            Sep: t.separator,
-          }),
-        ],
-      }),
+            Sep: t.separator
+          })
+        ]
+      })
     })
   );
 }
@@ -134,7 +134,7 @@ const style = HighlightStyle.define([
   { tag: hexInt, class: "cmt-hex" },
   { tag: octInt, class: "cmt-oct" },
   { tag: binInt, class: "cmt-bin" },
-  { tag: t.separator, class: "cmt-sep" },
+  { tag: t.separator, class: "cmt-sep" }
 ]);
 
 function updateByEffect<T>(effectType: StateEffectType<T>): (value: T, tr: Transaction) => T {
@@ -152,29 +152,29 @@ const dontIgnoreAtCursor = changeIgnoreAtCursor.of(false);
 
 const showErrorsField = StateField.define<boolean>({
   create: () => false,
-  update: updateByEffect(changeShowErrors),
+  update: updateByEffect(changeShowErrors)
 });
 const markedVariableField = StateField.define<string | null>({
   create: () => null,
-  update: updateByEffect(changeMarkedVariable),
+  update: updateByEffect(changeMarkedVariable)
 });
 const dupedTermsField = StateField.define<term[]>({
   create: () => [],
-  update: updateByEffect(changeDuplicatedTerms),
+  update: updateByEffect(changeDuplicatedTerms)
 });
 const ignoreAtCursorField = StateField.define<boolean>({
   create: () => true,
   update: (value, tr) =>
     tr.effects.find((e) => e.is(changeIgnoreAtCursor))?.value ??
-    (tr.docChanged ? true : tr.selection != null ? false : value),
+    (tr.docChanged ? true : tr.selection != null ? false : value)
 });
 const parseFacet = Facet.define<ParseData, ParseData>({
-  combine: (value) => (value.length ? value[0] : { errors: false, errMarks: Decoration.none }),
+  combine: (value) => (value.length ? value[0] : { errors: false, errMarks: Decoration.none })
 });
 
 function parseTerm(text: string): term {
   const [textNoSep, prefix, digits] =
-    text.replaceAll("_", "").match(/^(0[obx])?([\da-fA-F]+)$/) ?? [];
+  text.replaceAll("_", "").match(/^(0[obx])?([\da-fA-F]+)$/) ?? [];
   if (textNoSep == null) {
     throw new Error("Could not parse term from input " + text);
   }
@@ -234,14 +234,14 @@ function getExprParseData(state: EditorState): ExprParseData {
       if (secondLast) {
         secondLast.push(stack.pop()!);
       }
-    },
+    }
   });
   const errMarks = errRanges.finish();
   return {
     parse: stack.pop()!,
     vars: [...vars], //.sort(),
     errors: Boolean(errMarks.size),
-    errMarks,
+    errMarks
   };
 }
 
@@ -252,7 +252,7 @@ function getVariableMarks(state: EditorState) {
     enter: (nt, from, to) => {
       if (nt.name === "var" && state.sliceDoc(from, to) === mVar) ranges.add(from, to, varMark);
       if (!(nt.isError || nt.is("str"))) return false;
-    },
+    }
   });
   return ranges.finish();
 }
@@ -294,7 +294,7 @@ function getTermsParseData(state: EditorState, ignoreAtCursor: boolean = true): 
           }
         }
       }
-    },
+    }
   });
   const errMarks = errRanges.finish();
   return {
@@ -311,7 +311,7 @@ function getTermsParseData(state: EditorState, ignoreAtCursor: boolean = true): 
       ),
       true
     ),
-    errMarks,
+    errMarks
   };
 }
 
@@ -331,12 +331,23 @@ function correctSelection() {
   }
 }
 
+export function oneShotExpressionParse(text: string, allowEmpty: boolean = false) {
+  return text || allowEmpty
+    ? Object.assign(
+      getExprParseData(EditorState.create({
+          extensions: [bexpr()],
+          doc: text
+        })
+      ), { text })
+    : null;
+}
+
 abstract class EditorField<P extends EditorFieldProps> extends Component<P, EditorFieldState> {
   static defaultProps = {
     showErrors: false,
     initialDoc: "",
     className: "",
-    allowEmpty: false,
+    allowEmpty: false
   };
 
   abstract createEditor(props: P): EditorView;
@@ -421,10 +432,10 @@ export class ExpressionField extends EditorField<ExpressionFieldProps> {
           EditorView.decorations.compute([showErrorsField, parseFacet], (state: EditorState) =>
             state.field(showErrorsField) ? state.facet(parseFacet).errMarks : Decoration.none
           ),
-          EditorView.lineWrapping,
+          EditorView.lineWrapping
         ],
-        doc,
-      }),
+        doc
+      })
     });
   }
 
@@ -453,7 +464,7 @@ export class TermsField extends EditorField<TermsFieldProps> {
   divProps = {
     onBlur: () => {
       this.state.view.dispatch({ effects: dontIgnoreAtCursor });
-    },
+    }
   };
 
   constructor(props: TermsFieldProps) {
@@ -489,10 +500,10 @@ export class TermsField extends EditorField<TermsFieldProps> {
             [parseFacet],
             (state) => state.facet<TermsParseData>(parseFacet)?.dupMarks ?? Decoration.none
           ),
-          EditorView.lineWrapping,
+          EditorView.lineWrapping
         ],
-        doc,
-      }),
+        doc
+      })
     });
   }
 

@@ -496,20 +496,21 @@
   (r/with-let [id (random-uuid)]
     [expression-wrapper* props id (= id @!open-expr-id) summary details]))
 
-(defn terms-expression [{:keys [minterms maxterms unspecified pre post]}]
+(defn terms-expression [{:keys [minterms maxterms unspecified pre post class]}]
   (let [[terms command operator m d default]
         (if (some? minterms)
           [minterms "\\sum{" " + " "m(" "d(" (->latex [:FALSE])]
           [maxterms "\\prod{" " \\cdot " "M(" "D(" (->latex [:TRUE])])]
-    [$$ (str pre
-             (if (and (empty? terms) (empty? unspecified))
-               default
-               (str-join command operator "}"
-                         (non-empties (when-not (empty? terms)
-                                        (str-join m "," ")" (sort terms)))
-                                      (when-not (empty? unspecified)
-                                        (str-join d "," ")" (sort unspecified))))))
-             post)]))
+    [$$ {:class class}
+     (str pre
+          (if (and (empty? terms) (empty? unspecified))
+            default
+            (str-join command operator "}"
+                      (non-empties (when-not (empty? terms)
+                                     (str-join m "," ")" (sort terms)))
+                                   (when-not (empty? unspecified)
+                                     (str-join d "," ")" (sort unspecified))))))
+          post)]))
 
 (defn expression
   [{:keys [display !formatters expandable wrap class var-fn
@@ -530,7 +531,8 @@
       (if-not expandable
         [(if display :div :span) {:class (classes :expression class "non-expandable")}
          math-content]
-        [expression-wrapper wrapper-props
+        [expression-wrapper
+         (assoc wrapper-props :class class)
          math-content
          [copy-panel (mp !formatters var-fn) expr]]))))
 

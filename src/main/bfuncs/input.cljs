@@ -19,9 +19,11 @@
    [reagent-material-ui.core.radio :refer [radio]]
    [reagent-material-ui.core.radio-group :refer [radio-group]]
    [reagent-material-ui.icons.add-outlined :refer [add-outlined]]
+   [reagent-material-ui.icons.help-outline-outlined :refer [help-outline-outlined]]
    [bfuncs.transitions :refer [switch-transition]]
-   ["/bfuncs/EditorField" :refer [TermsField ExpressionField]]
-   [clojure.set :as set]))
+   ["/bfuncs/EditorField" :refer [TermsField ExpressionField oneShotExpressionParse]]
+   [clojure.set :as set]
+   [clojure.string :as string]))
 
 
 (defonce !input-type (r/atom "expression"))
@@ -59,6 +61,20 @@
                  :duplicates? (j/get parse-result :duplicates)
                  :text (j/get parse-result :text)
                  :type type}))
+
+(defn query-expression-parse [expr-str]
+  (when-some [parse (oneShotExpressionParse expr-str)]
+    (parse-result->clj parse :expression)))
+
+(defn query-terms-parse [terms-str unspecified-str type]
+  (let [terms (mapv js/parseInt (j/call terms-str :split ","))
+        unspecified (mapv js/parseInt (j/call unspecified-str :split ","))
+        all-terms (concat terms unspecified)]
+    (when (and (every? #(and (int? %) (>= % 0)) all-terms)
+               (apply distinct? (concat terms unspecified)))
+      {:terms [terms unspecified]
+       :type type})))
+
 
 (defn- term-intersection [{t1 :terms, x1 :extra} {t2 :terms, x2 :extra}]
   (if (or (empty? t1) (empty? t2))
@@ -131,7 +147,7 @@
   [:div.expression-section
    [typography {:variant "body1"
                 :class "title"}
-    "Parsed Expression"]
+    "Expression"]
    [expression {:class (classes :typeset-expression)
                 :expandable true}
     expr]])
@@ -237,8 +253,7 @@
                                   (remove nil?)
                                   [(when errors? :errors) (when duplicates? :duplicates)])))))
 
-(defn input-card [{:keys [on-success on-failure on-submit]}]
-  "on-success/on-failure should have signature [{:keys [type text vars tree errors?]}]"
+(defn input-card [{:keys [on-success on-failure on-submit on-back]}]
   (r/with-let [submit (fn []
                         (on-submit)
                         (let-case [input-type @!input-type]
@@ -274,7 +289,9 @@
                              :control (r/as-element [radio])}]
         [form-control-label {:value "maxterms"
                              :label "Maxterms"
-                             :control (r/as-element [radio])}]]]
+                             :control (r/as-element [radio])}]
+        ]]
+
       [switch-transition
        (case @!input-type
          "minterms" [fade {:key "minterms"}
@@ -293,4 +310,4 @@
                 :color "primary"
                 :on-click submit
                 :size "large"}
-        "Convert"]]]]))
+        "Go"]]]]))

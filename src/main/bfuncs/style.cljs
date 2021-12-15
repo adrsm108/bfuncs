@@ -122,8 +122,12 @@
                                 :row-gap (spacing 4)
                                 :align-content "flex-start"
                                 >.MuiCard-root {:overflow "unset"}
+
                                 }
               }
+       :process-progress {:margin-top (spacing 5)
+                          :display "flex"
+                          :justify-content "center"}
        :main-grid-item {(break-only "xs") {&.MuiGrid-item {:padding-x (spacing 1)}}}
        :essentials-table {:width "100%"
                           >table {:align-items "start"
@@ -453,7 +457,20 @@
                    * {:pointer-events "none"}}
 
        :title {:flex-grow 1
-               :line-height 2}
+               :line-height 2
+               >a {:color "inherit"
+                   :text-decoration "inherit"}
+               }
+
+       :main-function {:font-size "1.1rem"
+                       (break-up "sm") {:font-size "1.3rem"}
+                       (break-up "lg") {:font-size "1.4rem"}
+                       $math {:font-size "1.1rem"
+                              (break-up "sm") {:font-size "1.3rem"}
+                              (break-up "lg") {:font-size "1.4rem"}
+                              }
+                       }
+
        :terms-table {:extends :chip-container
                      ;:display "flex"
                      ;:flex-flow "row wrap"
@@ -787,12 +804,6 @@
         :transition (create-transition "background-color")
         }
 
-       ;:truth-table {:max-height 580
-       ;              :border-radius radius
-       ;              >.MuiTable-root {[&>thead>tr
-       ;                                &>tbody>tr] {&.true {:background-color (grey 50)}
-       ;                                             &>th.MuiTableCell-stickyHeader {:background-color "white"}}
-       ;                               th {:overflow-x "auto"}}}
        :truth-table
        {&.small {rect.datum {:rx 2}}
         rect.datum {:rx radius
@@ -800,7 +811,9 @@
                                                    {:duration shorter})
                     :extends :bool-valued
                     '(&.output [data-boolval = "true"]) {:fill (secondary :A400)}}
-        >.chunks {>svg.chunk {:overflow "auto"}
+        >.chunks {:display "flex"
+                  :justify-content "space-evenly"
+                  >svg.chunk {:overflow "auto"}
                   .tick {>text {:mixin (typography :caption)}}
                   }
 
@@ -898,9 +911,9 @@
                       }
        :prime-implicant-table-container {:position "relative"}
        :radial-chart
-       {:display "grid"
-        :grid-template-columns "auto auto"
-        :column-gap (spacing 2)
+       {:margin 0
+        :display "flex"
+        :flex-flow "row wrap"
         :justify-content "center"
         :place-items "center"
         >.chart-container
@@ -932,6 +945,7 @@
          }
         >.legend {:display "grid"
                   :row-gap (spacing 1)
+                  :margin-left (spacing 2)
                   :grid-template-columns "repeat(4, auto)"
                   :align-items "center"
                   :column-gap (spacing 1)

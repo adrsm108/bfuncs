@@ -2,10 +2,12 @@
   (:require
    [bfuncs.app :refer [app]]
    [goog.dom :as gdom]
-   [reagent.dom :as rdom]))
+   [reagent.dom :as rdom]
+   ["react-router-dom" :refer [BrowserRouter]]
+   ))
 
 (defn ^:dev/after-load start []
-  (rdom/render [app] (gdom/getElement "app")))
+  (rdom/render [:> BrowserRouter [:f> app]] (gdom/getElement "app")))
 
 (defn init []
   (start))
