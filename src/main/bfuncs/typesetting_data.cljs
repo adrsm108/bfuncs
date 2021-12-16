@@ -136,7 +136,7 @@
                    {:name "Subset"
                     :latex [:infix " \\mathbin{\\subset} " 1.3294]
                     :text " ⊂ "}]}
-   :NIMP {:operation "Non-Implication"
+   :NIMP {:operation "Nonimplication"
           :formats [{:name "Right double arrow with slash"
                      :latex [:infix " \\nRightarrow " 1.6888]
                      :text " ⇏ "}
@@ -146,7 +146,7 @@
                     {:name "Superset with slash"
                      :latex [:infix " \\mathbin{\\not\\supset} " 1.3294]
                      :text " ⊅ "}]}
-   :NCON {:operation "Converse Non-Implication"
+   :NCON {:operation "Converse Nonimplication"
           :formats [{:name "Left double arrow with slash"
                      :latex [:infix " \\nLeftarrow " 1.6888]
                      :text " ⇍ "}
@@ -157,7 +157,7 @@
                      :latex [:infix " \\mathbin{\\not\\subset} " 1.3294]
                      :text " ⊄ "}]}
 
-   :EQ {:operation "Equivalence"
+   :EQ {:operation "n-ary Equivalence"
         :formats [{:name "Left right double arrow"
                    :latex [:infix " \\mathbin{\\Leftrightarrow} " 1.569]
                    :text " ⇔ "}
@@ -168,7 +168,7 @@
                    :latex [:infix " \\mathbin{\\equiv} " 1.3294]
                    :text " ≡ "}
                   ]}
-   :NEQ {:operation "Non-Equivalence"
+   :NEQ {:operation "n-ary Nonequivalence"
     :formats [{:name "Left right double arrow with slash"
                :latex [:infix " \\mathbin{\\nLeftrightarrow} " 1.569]
                :text " ⇎ "}

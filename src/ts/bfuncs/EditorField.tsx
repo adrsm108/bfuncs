@@ -332,14 +332,13 @@ function correctSelection() {
 }
 
 export function oneShotExpressionParse(text: string, allowEmpty: boolean = false) {
-  return text || allowEmpty
-    ? Object.assign(
-      getExprParseData(EditorState.create({
-          extensions: [bexpr()],
-          doc: text
-        })
-      ), { text })
-    : null;
+  if (!text && !allowEmpty) return null;
+  const res = getExprParseData(EditorState.create({
+    extensions: [bexpr()],
+    doc: text
+  }));
+  if (res.errors) return null;
+  return Object.assign(res, { text });
 }
 
 abstract class EditorField<P extends EditorFieldProps> extends Component<P, EditorFieldState> {

@@ -1,4 +1,4 @@
-(ns bfuncs.steps-card
+(ns bfuncs.steps
   (:require
    ["/bfuncs/CoverageTable" :default CoverageTable]
    ["/bfuncs/VariablesDragDrop" :default VariablesDragDrop]
@@ -63,7 +63,16 @@
    [reagent-material-ui.icons.check-outlined :refer [check-outlined]]
    [reagent-material-ui.icons.loop-outlined :refer [loop-outlined]]
    [reagent-material-ui.icons.expand-more-outlined :refer [expand-more-outlined]]
+   [reagent-material-ui.icons.edit :refer [edit]]
+   ["react-router-dom" :refer [useHistory useLocation]]
    [reagent.core :as r :refer-macros [with-let]]))
+
+(defn edit-button-f [{:keys [search-string]}]
+  (let [history (useHistory)]
+    [icon-button {:on-click #(j/call history :push
+                               #js {:pathname "/"
+                                    :search search-string})}
+     [edit]]))
 
 (defn- get-outer [form-type]
   (case form-type
@@ -147,8 +156,6 @@
       (empty? essentials)
       :allTermsCovered
       @all-terms-covered?})))
-
-
 
 (defn- vars->js [vars]
   (clj->js (fori' [i :index
@@ -458,17 +465,8 @@
   )
 
 (defn terms-section [{:keys [data ifsop] :as props}]
-  (echol :propsz props)
   (let [{:keys [vars expr input-terms input-type unspecified]} data]
     [:<>
-     ;; Find terms
-     [typography {:component "div"}
-      "Let "
-      [$ (str-join "F(" "," ")=" format-latex-var vars)]
-      (if (= input-type :expression)
-        [expression {:display true} expr]
-        [terms-expression {input-type input-terms
-                           :unspecified unspecified}])]
      [typography {:variant "h5"}
       (str "Find " (ifsop "Minterms" "Maxterms"))]
      (if (= input-type :expression)
@@ -482,10 +480,27 @@
                      :class (classes :conditions)}]
         conds))
 
-(defn- introduction-section [{:keys [data ifsop ifsop-implies format-prime] :as data-map}]
+(defn- introduction-section [{:keys [data ifsop ifsop-implies format-prime search-string] :as data-map}]
   (let [{:keys [primes target-form imp-word term-word]} data
         nprimes (count primes)]
     [:<>
+     (let [{:keys [vars expr input-terms input-type unspecified]} data]
+       [:<>
+        ;; Find terms
+        [typography {:variant "h5"}
+         "Function"
+
+        [:f> edit-button-f {:search-string search-string}]]
+        [typography {:component "div"}
+         "Let "
+         [$ (str-join "F(" "," ")=" format-latex-var vars)]
+         (if (= input-type :expression)
+           [expression {:display true
+                        :class (classes :main-function)}
+            expr]
+           [terms-expression {input-type input-terms
+                              :unspecified unspecified
+                              :class (classes :main-function)}])]])
      [typography {:variant "h5"} "Motivation"]
      [typography {:component "div"}
       "An " [:em imp-word] [$ "X"] " of a Boolean function " [$ "F"] "is any "
@@ -502,7 +517,7 @@
        [:li [$ "F^* \\iff F"]]
        [:li [expression {:pre "F^* = "} [(ifsop :OR :AND) "X_1" "X_2" "\\dots" "X_m"]]
         " where the " [$ "X_i"] " are " (ifsop "products" "sums") " of literals."]
-       [:li "No expression satisfying the previous properties has fewer total literals than " [$ "F^*" "."]]]
+       [:li "There exists no expression satisfying the previous properties with fewer total literals than " [$ "F^*" "."]]]
       "From (1) and (2), it follows immediately that these " [$ "X_1, X_2, \\dots"] " are " imp-word "s of" [$ "F" "."]
       "Moreover, they must be prime; if" [$ "X_k"] "could be covered by a different "
       imp-word [$ "X_k'" ","] "then the function"
@@ -585,10 +600,8 @@
         "Zero terms"]
        ]
       [:<>
-
        [typography {:variant "h5"}
         "Create A Coverage Table"]
-
        [:div.steps
         [step {:number 1}
          [step-summary "Create a table with one row for each prime " imp-word ", and one column for each " term-word "."]]
@@ -805,8 +818,8 @@
     )
   )
 
-(defn steps-card [{:keys [title expr !vars target-form results-type terms]
-                   :or {title "Steps" target-form :SOP}}]
+(defn steps-card [{:keys [title expr !vars target-form results-type terms search-string]
+                   :or {title "Minimization Steps" target-form :SOP}}]
   (with-let [!data (r/atom nil)]
     (let [{:keys [target-form] :as data}
           (reset! !data
@@ -827,7 +840,7 @@
           ifsop-implies (case target-form
                           :SOP (fn [a b] (str a " \\implies " b))
                           :POS (fn [a b] (str b " \\implies " a)))
-          data-map (mp data !vars !sel format-term format-prime ifsop ifsop-implies)]
+          data-map (mp data !vars !sel format-term format-prime ifsop ifsop-implies search-string)]
       [card {:class (classes :steps-card :vertical-grid)
              :on-click (fn [e]
                          (when (j/get-in e [:target :closest])
@@ -839,7 +852,7 @@
        ;              :title title}]
        ;       [divider {:class (:divider classes)}]
        [card-content {:class (classes :card-content)}
-        ;[typography {:variant "h5"} title]
+        [typography {:variant "h5"} title]
         [introduction-section data-map]
         [terms-section data-map]
         [prime-implicants-section data-map]

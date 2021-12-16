@@ -18,15 +18,13 @@
    [reagent-material-ui.core.icon-button :refer [icon-button]]
    [reagent-material-ui.core.radio :refer [radio]]
    [reagent-material-ui.core.radio-group :refer [radio-group]]
-   [reagent-material-ui.icons.add-outlined :refer [add-outlined]]
-   [reagent-material-ui.icons.help-outline-outlined :refer [help-outline-outlined]]
+   [reagent-material-ui.core.link :refer [link]]
    [bfuncs.transitions :refer [switch-transition]]
    ["/bfuncs/EditorField" :refer [TermsField ExpressionField oneShotExpressionParse]]
    [clojure.set :as set]
    [clojure.string :as string]))
 
 
-(defonce !input-type (r/atom "expression"))
 (defonce !expression-field-state (r/atom {:issues nil, :parse nil}))
 (defonce !marked-var (r/atom nil))
 
@@ -46,6 +44,18 @@
   {"minterms" !u-minterms-field-state
    "maxterms" !u-maxterms-field-state})
 
+(defn- reset-state! []
+  (reset! !expression-field-state {:issues nil, :parse nil})
+  (reset! !marked-var nil)
+
+  (reset! !minterms-field-state {:issues nil, :parse nil})
+  (reset! !u-minterms-field-state {:issues nil, :parse nil})
+  (reset! !duped-minterms #{})
+
+  (reset! !maxterms-field-state {:issues nil :parse nil})
+  (reset! !u-maxterms-field-state {:issues nil :parse nil})
+  (reset! !duped-maxterms #{}))
+
 (defn- parse-result->clj [parse-result type]
   (case type
     :expression {:tree (j/get parse-result :parse)
@@ -63,7 +73,7 @@
                  :type type}))
 
 (defn query-expression-parse [expr-str]
-  (when-some [parse (oneShotExpressionParse expr-str)]
+  (when-some [parse (echol :osep (oneShotExpressionParse expr-str))]
     (parse-result->clj parse :expression)))
 
 (defn query-terms-parse [terms-str unspecified-str type]
@@ -148,40 +158,42 @@
    [typography {:variant "body1"
                 :class "title"}
     "Expression"]
-   [expression {:class (classes :typeset-expression)
-                :expandable true}
+   [expression {:expandable false
+                :display true}
     expr]])
 
-(defn expression-input [{:keys [class]}]
+(defn expression-input [{:keys [class expression-default]}]
   (r/with-let [handle-parse (fn [js-result]
                               (swap! !expression-field-state assoc
                                      :parse (parse-result->clj
                                              js-result
                                              :expression)))
                handle-click-away #(reset! !marked-var [nil false])
-               default-text (get-in @!expression-field-state [:parse :text])
+               default-text (get-in @!expression-field-state [:parse :text] expression-default)
                !last-valid-expr (atom nil)]
     (let [marked-var @(r/track! first @!marked-var)
           {issues :issues
-           {:keys [vars tree errors?] :as porse} :parse} @!expression-field-state]
+           {:keys [vars tree errors?]} :parse} @!expression-field-state]
       [click-away-listener {:on-click-away handle-click-away}
        [:div {:class (classes :expression-input class)}
         [expression-field {:marked-var marked-var
                            :on-parse handle-parse
                            :issues issues
                            :initial-doc default-text}]
-        [expression-section (if errors?
-                              @!last-valid-expr
-                              (reset! !last-valid-expr tree))]
-        [variables-section vars marked-var]]])))
+        (when-not (empty? tree)
+          [expression-section (if errors?
+                                @!last-valid-expr
+                                (reset! !last-valid-expr tree))])
+        (when-not (empty? vars)
+          [variables-section vars marked-var])]])))
 
-(defn- minterms-input [{:keys [class]}]
-  (with-let [default-text (get-in @!minterms-field-state [:parse :text])
+(defn- minterms-input [{:keys [class terms-default unspecified-default]}]
+  (with-let [default-text (get-in @!minterms-field-state [:parse :text] terms-default)
              handle-minterms-parse (handle-terms-fn :minterms
                                                     !minterms-field-state
                                                     !u-minterms-field-state
                                                     !duped-minterms)
-             default-u-text (get-in @!u-minterms-field-state [:parse :text])
+             default-u-text (get-in @!u-minterms-field-state [:parse :text] unspecified-default)
              handle-u-minterms-parse (handle-terms-fn :unspecified
                                                       !u-minterms-field-state
                                                       !minterms-field-state
@@ -210,13 +222,13 @@
        (when-not (and (empty? terms) (empty? u-terms))
          [terms-expression {:minterms terms :unspecified u-terms}])])))
 
-(defn- maxterms-input [{:keys [class]}]
-  (with-let [default-text (get-in @!maxterms-field-state [:parse :text])
+(defn- maxterms-input [{:keys [class terms-default unspecified-default]}]
+  (with-let [default-text (get-in @!maxterms-field-state [:parse :text] terms-default)
              handle-maxterms-parse (handle-terms-fn :maxterms
                                                     !maxterms-field-state
                                                     !u-maxterms-field-state
                                                     !duped-maxterms)
-             default-u-text (get-in @!u-maxterms-field-state [:parse :text])
+             default-u-text (get-in @!u-maxterms-field-state [:parse :text] unspecified-default)
              handle-u-maxterms-parse (handle-terms-fn :unspecified
                                                       !u-maxterms-field-state
                                                       !maxterms-field-state
@@ -232,19 +244,18 @@
                      :placeholder "Maxterms..."
                      :on-parse handle-maxterms-parse
                      :issues issues
-                     :initial-doc default-text}]
+                     :initial-doc terms-default}]
        [terms-field {:class "unspecified"
                      :placeholder "Unspecified terms..."
                      :duped-terms duped-maxterms
                      :issues u-issues
                      :on-parse handle-u-maxterms-parse
-                     :initial-doc default-u-text
+                     :initial-doc unspecified-default
                      :allow-empty true}]
        [terms-section "Maxterms" terms]
        [terms-section "Unspecified" u-terms]
        (when-not (and (empty? terms) (empty? u-terms))
          [terms-expression {:maxterms terms :unspecified u-terms}])])))
-
 
 (defn update-issues! [!state]
   (swap! !state #(assoc % :issues
@@ -253,8 +264,274 @@
                                   (remove nil?)
                                   [(when errors? :errors) (when duplicates? :duplicates)])))))
 
-(defn input-card [{:keys [on-success on-failure on-submit on-back]}]
-  (r/with-let [submit (fn []
+(defn truth-table [])
+
+(defn syntax-example [{} & examples]
+  [:pre (string/join "\n" examples)])
+
+(defn join-lines [& lines]
+  (string/join "\n" lines))
+
+(defn term-input-info [{}]
+  [typography {:class (classes :input-info)
+               :component "div"}
+   [typography {:variant "h6"}
+    "Minterm/Maxterm Syntax"]
+   [typography {:component "div"}
+    "Minterms and maxterms should be given as lists of numbers separated by commas or whitespace.
+     Integers in base 10, 2, 8, and 16 are supported through the corresponding javascript literal syntax.
+    For instance, 24 can be input as "
+    [:span.syntax [:div.x [:span.cmt-number "24"]]] ", "
+    [:span.syntax [:div.x [:span.cmt-number "0b11000"]]] ", "
+    [:span.syntax [:div.x [:span.cmt-number "0o30"]]] ", or "
+    [:span.syntax [:div.x [:span.cmt-number "0x18"]]] " in decimal, binary, octal, or hex respectively."]
+   ]
+  )
+
+(defn expression-input-info [{}]
+  (let [a [:span.cmt-variableName "a"]
+        b [:span.cmt-variableName "b"]
+        bin (fn [o] [:div.x a o b])]
+    [typography {:component "div"
+                 :class (classes :input-info)}
+     [typography {:variant "h6"}
+      "Expression Syntax"]
+     [typography {:component "div"}
+      "Expressions are combinations of variables and operators."]
+     [typography {:component "div"}
+      "Variables can consist of alphanumeric characters, dashes, and underscores,
+      with the restriction that names must begin with a letter, and cannot end with an underscore."]
+     [typography {:component "div"}
+      "The following table gives supported operators from highest to lowest precedence.
+      Operators within the same group have equal precedence, and are left associative."]
+     [typography {:component "div"}
+      "Any non-alphabetic operator may be prefixed with "
+      [:span.syntax [:div.x [:span.cmt-negated.cmt-operator "!"]]]
+      " or "
+      [:span.syntax [:div.x [:span.cmt-negated.cmt-operator "~"]]]
+      " to obtain its negation; "
+      [:span.syntax [:div.x (bin [:span.cmt-negated.cmt-operator "!=>"])]]
+      " denotes nonimplication, "
+      [:span.syntax [:div.x (bin [:span.cmt-negated.cmt-operator "!<=>"])]]
+      " denotes nonequivalence, and so on."
+      ]
+     [typography {:component "div"}
+      "You can change the way expressions are rendered through the typesetting menu in the app bar."]
+     [:table
+      [:thead
+       [:tr
+        [:th "Operation"]
+        [:th "Truth Vector"]
+        [:th "Syntax"]]]
+
+      [:tbody
+       [:tr
+        [:td "Grouping"]
+        [:td  "-"]
+        [:td
+         [:div.syntax
+          [:div.x "( expr )"]]]]]
+
+      [:tbody
+       [:tr
+        [:td "True"]
+        [:td "1"]
+        [:td
+         [:div.syntax
+          [:div.x [:span.cmt-keyword.cmt-bool "true"]]
+          [:div.x [:span.cmt-bool "1"]]
+          [:div.x [:span.cmt-bool "⊤"]]]]]
+
+       [:tr
+        [:td "False"]
+        [:td "0"]
+        [:td
+         [:div.syntax
+          [:div.x [:span.cmt-keyword.cmt-bool "false"]]
+          [:div.x [:span.cmt-bool "0"]]
+          [:div.x [:span.cmt-bool "⊥"]]]]]]
+
+      [:tbody
+       [:tr
+        [:td [link {:href "https://en.wikipedia.org/wiki/Negation"}
+              "NOT"]]
+        [:td "(10)"]
+        [:td
+         [:div.syntax
+          [:div.x [:span.cmt-operator-keyword.cmt-operator.cmt-keyword.cmt-negated.cmt-operator "not"] a]
+          [:div.x [:span.cmt-negated.cmt-operator.nospace-after "!"] a]
+          [:div.x a [:span.cmt-negated.cmt-operator.nospace-before "'"]]
+          [:div.x [:span.cmt-negated.cmt-operator.nospace-after "~"] a]]]]]
+
+      [:tbody
+       [:tr
+        [:td
+         [link {:href "https://en.wikipedia.org/wiki/Logical_conjunction"}
+          "AND"]]
+        [:td "(0001)"]
+        [:td
+         [:div.syntax
+          (bin [:span.cmt-operator-keyword.cmt-operator.cmt-keyword.cmt-log-op.cmt-operator "and"])
+          (bin " ")
+          (bin [:span.cmt-log-op.cmt-operator "&&"])
+          (bin [:span.cmt-log-op.cmt-operator "&"])
+          (bin [:span.cmt-log-op.cmt-operator "."])
+          (bin [:span.cmt-log-op.cmt-operator "*"])
+          (bin [:span.cmt-log-op.cmt-operator "∧"])]]]
+
+       [:tr
+        [:td [link {:href "https://en.wikipedia.org/wiki/Sheffer_stroke"}
+              "NAND"]]
+        [:td "(1110)"]
+        [:td
+         [:div.syntax
+          (bin [:span.cmt-operator-keyword.cmt-operator.cmt-keyword.cmt-log-op.cmt-operator "nand"])
+          (bin [:span.cmt-log-op.cmt-operator "⊼"])
+          (bin [:span.cmt-log-op.cmt-operator "↑"])
+          #_(bin [:span.cmt-negated.cmt-operator "!&&"])
+          #_(bin [:span.cmt-negated.cmt-operator "!*"])]]]]
+
+      [:tbody
+       [:tr
+        [:td [link {:href "https://en.wikipedia.org/wiki/Exclusive_or"}
+              "XOR"]]
+        [:td "(0110)"]
+        [:td
+         [:div.syntax
+          (bin [:span.cmt-operator-keyword.cmt-operator.cmt-keyword.cmt-log-op.cmt-operator "xor"])
+          (bin [:span.cmt-log-op.cmt-operator "^"])
+          (bin [:span.cmt-log-op.cmt-operator "<>"])
+          (bin [:span.cmt-log-op.cmt-operator "<+>"])
+          (bin [:span.cmt-log-op.cmt-operator "⊕"])
+          (bin [:span.cmt-log-op.cmt-operator "⊻"])]]]
+
+       [:tr
+        [:td [link {:href "https://en.wikipedia.org/wiki/Logical_biconditional"}
+              "XNOR"]]
+        [:td "(1001)"]
+        [:td
+         [:div.syntax
+          (bin [:span.cmt-operator-keyword.cmt-operator.cmt-keyword.cmt-log-op.cmt-operator "xnor"])
+          (bin [:span.cmt-log-op.cmt-operator "=="])
+          (bin [:span.cmt-log-op.cmt-operator "<*>"])
+          (bin [:span.cmt-log-op.cmt-operator "<.>"])
+          (bin [:span.cmt-log-op.cmt-operator "⊙"])
+          (bin [:span.cmt-log-op.cmt-operator "⩟"])]]]]
+
+      [:tbody
+       [:tr
+        [:td
+         [link {:href "https://en.wikipedia.org/wiki/Logical_disjunction"}
+          "OR"]]
+        [:td "(0111)"]
+        [:td
+         [:div.syntax
+          (bin [:span.cmt-operator-keyword.cmt-operator.cmt-keyword.cmt-log-op.cmt-operator "or"])
+          (bin [:span.cmt-log-op.cmt-operator "+"])
+          (bin [:span.cmt-log-op.cmt-operator "||"])
+          (bin [:span.cmt-log-op.cmt-operator "|"])]]]
+
+       [:tr
+        [:td [link {:href "https://en.wikipedia.org/wiki/Logical_NOR"}
+              "NOR"]]
+        [:td "(1000)"]
+        [:td
+         [:div.syntax
+          (bin [:span.cmt-operator-keyword.cmt-operator.cmt-keyword.cmt-log-op.cmt-operator "nor"])
+          (bin [:span.cmt-log-op.cmt-operator "⊽"])
+          (bin [:span.cmt-log-op.cmt-operator "↓"])
+          #_(bin [:span.cmt-negated.cmt-operator "!||"])
+          #_(bin [:span.cmt-negated.cmt-operator "!+"])]]]]
+
+      [:tbody
+       [:tr
+        [:td [:em "n"] "-ary Equivalence"]
+        [:td "(100...001)"]
+        [:td
+         [:div.syntax
+          (bin [:span.cmt-operator-keyword.cmt-operator.cmt-keyword.cmt-rel-op.cmt-operator "equiv"])
+          (bin [:span.cmt-rel-op.cmt-operator "<=>"])
+          (bin [:span.cmt-rel-op.cmt-operator "<->"])
+          (bin [:span.cmt-rel-op.cmt-operator "⇔"])
+          (bin [:span.cmt-rel-op.cmt-operator "↔"])
+          (bin [:span.cmt-rel-op.cmt-operator "≡"])]]]
+
+       [:tr
+        [:td [:em "n"] "-ary Nonequivalence"]
+        [:td "(011...110)"]
+        [:td
+         [:div.syntax
+          (bin [:span.cmt-rel-op.cmt-operator "⇎"])
+          #_(bin [:span.cmt-negated.cmt-operator "!<=>"])
+          #_(bin [:span.cmt-negated.cmt-operator "!<->"])
+          #_(bin [:span.cmt-negated.cmt-operator "!⇔"])
+          #_(bin [:span.cmt-negated.cmt-operator "!≡"])]]]]
+
+      [:tbody
+       [:tr
+        [:td [link {:href "https://en.wikipedia.org/wiki/Converse_(logic)"} "Converse Implication"]]
+        [:td "(1101)"]
+        [:td
+         [:div.syntax
+          (bin [:span.cmt-operator-keyword.cmt-operator.cmt-keyword.cmt-rel-op.cmt-operator "impliedby"])
+          (bin [:span.cmt-rel-op.cmt-operator "<-"])
+          (bin [:span.cmt-rel-op.cmt-operator "<="])
+          (bin [:span.cmt-rel-op.cmt-operator "⇐"])
+          (bin [:span.cmt-rel-op.cmt-operator "←"])
+          (bin [:span.cmt-rel-op.cmt-operator "⊂"])]]]
+
+       [:tr
+        [:td [link {:href "https://en.wikipedia.org/wiki/Converse_nonimplication"}
+              "Converse Nonimplication"]]
+        [:td "(0010)"]
+        [:td
+         [:div.syntax
+          (bin [:span.cmt-rel-op.cmt-operator "⇍"])
+          (bin [:span.cmt-rel-op.cmt-operator "⊄"])
+          #_(bin [:span.cmt-negated.cmt-operator "!<="])
+          #_(bin [:span.cmt-negated.cmt-operator "!<-"])]
+         ]]]
+
+      [:tbody
+       [:tr
+        [:td [link {:href "https://en.wikipedia.org/wiki/Material_conditional"} "Implication"]]
+        [:td "(1011)"]
+        [:td
+         [:div.syntax
+          (bin [:span.cmt-operator-keyword.cmt-operator.cmt-keyword.cmt-rel-op.cmt-operator "implies"])
+          (bin [:span.cmt-rel-op.cmt-operator "=>"])
+          (bin [:span.cmt-rel-op.cmt-operator "->"])
+          (bin [:span.cmt-rel-op.cmt-operator "→"])
+          (bin [:span.cmt-rel-op.cmt-operator "⊃"])]]]
+
+       [:tr
+        [:td [link {:href "https://en.wikipedia.org/wiki/Material_nonimplication"}
+              "Nonimplication"]]
+        [:td "(0100)"]
+        [:td
+         [:div.syntax
+          (bin [:span.cmt-rel-op.cmt-operator "⇏"])
+          (bin [:span.cmt-rel-op.cmt-operator "⊅"])
+          #_(bin [:span.cmt-negated.cmt-operator "!=>"])
+          #_(bin [:span.cmt-negated.cmt-operator "!->"])]]]]]
+
+     ]))
+
+(defn input-card [{:keys [on-success on-failure on-submit key search-params]}]
+  (r/with-let [init-type (j/call search-params :get "t")
+               !input-type (r/atom (get #{"expression" "minterms" "maxterms"}
+                                        init-type "expression"))
+               init-expr (when (= init-type "expression")
+                           (j/call search-params :get "e"))
+               init-minterms (when (= init-type "minterms")
+                               (j/call search-params :get "m"))
+               init-minterms-d (when (= init-type "minterms")
+                                 (j/call search-params :get "d"))
+               init-maxterms (when (= init-type "maxterms")
+                               (j/call search-params :get "m"))
+               init-maxterms-d (when (= init-type "maxterms")
+                                 (j/call search-params :get "d"))
+               submit (fn []
                         (on-submit)
                         (let-case [input-type @!input-type]
                           "expression" (let [{:keys [issues parse]}
@@ -270,44 +547,57 @@
                                          ((if-not (and (empty? issues) (empty? u-issues))
                                             on-failure
                                             on-success) (update (merge-with vector parse u-parse)
-                                                          :type first)))))]
-    [card {:class (classes :input-card)}
-     [card-content {:class (classes :card-content :vertical-grid)}
-      [typography {:variant "h5"}
-       "Enter Function"]
-      [form-control {:component "fieldset"}
-       [form-label {:class "specification-label"
-                    :component "legend"} "Specify by"]
-       [radio-group {:row true
-                     :value @!input-type
-                     :on-change #(reset! !input-type (event-value %))}
-        [form-control-label {:value "expression"
-                             :label "Expression"
-                             :control (r/as-element [radio])}]
-        [form-control-label {:value "minterms"
-                             :label "Minterms"
-                             :control (r/as-element [radio])}]
-        [form-control-label {:value "maxterms"
-                             :label "Maxterms"
-                             :control (r/as-element [radio])}]
-        ]]
+                                                          :type first)))))
+               _ (echol :resetting (reset-state!))]
+    (let [input-type @!input-type]
+      [:div {:class (classes :input-card-wrapper :vertical-grid)}
+       [card {:class (classes :input-card)}
+        [card-content {:class (classes :card-content :vertical-grid)}
+         [typography {:variant "h5"}
+          "Enter Function"]
+         [form-control {:component "fieldset"}
+          [form-label {:class "specification-label"
+                       :component "legend"} "Specify by"]
+          [radio-group {:row true
+                        :value @!input-type
+                        :on-change #(reset! !input-type (event-value %))}
+           [form-control-label {:value "expression"
+                                :label "Expression"
+                                :control (r/as-element [radio])}]
+           [form-control-label {:value "minterms"
+                                :label "Minterms"
+                                :control (r/as-element [radio])}]
+           [form-control-label {:value "maxterms"
+                                :label "Maxterms"
+                                :control (r/as-element [radio])}]
+           ]]
+         [switch-transition
+          (case input-type
+            "minterms" [fade {:key "minterms"}
+                        [:div.fade-wrapper
+                         [minterms-input {:terms-default init-minterms
+                                          :unspecified-default init-minterms-d}]]]
+            "maxterms" [fade {:key "maxterms"}
+                        [:div.fade-wrapper
+                         [maxterms-input {:terms-default init-maxterms
+                                          :unspecified-default init-maxterms-d}]]]
+            "expression" [fade {:key "expression"}
+                          [:div.fade-wrapper
+                           [expression-input {:expression-default init-expr}]]])]
+         [:div.buttons
+          [button {:class "go-button"
+                   :variant "outlined"
+                   :disable-elevation true
+                   :color "primary"
+                   :on-click submit
+                   :size "large"}
+           "Go"]]]]
+       [switch-transition
+        (case input-type
+          "expression" [fade {:key "expression"}
+                        [:div.fade-wrapper
+                         [expression-input-info]]]
+          ("minterms" "maxterms") [fade {:key "terms"}
+                                   [:div.fade-wrapper
+                                    [term-input-info]]])]])))
 
-      [switch-transition
-       (case @!input-type
-         "minterms" [fade {:key "minterms"}
-                     [:div.fade-wrapper
-                      [minterms-input]]]
-         "maxterms" [fade {:key "maxterms"}
-                     [:div.fade-wrapper
-                      [maxterms-input]]]
-         "expression" [fade {:key "expression"}
-                       [:div.fade-wrapper
-                        [expression-input]]])]
-      [:div.buttons
-       [button {:class "go-button"
-                :variant "outlined"
-                :disable-elevation true
-                :color "primary"
-                :on-click submit
-                :size "large"}
-        "Go"]]]]))

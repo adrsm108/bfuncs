@@ -8,7 +8,7 @@
    [bfuncs.input :refer [expression-input input-card]]
    [bfuncs.globals :refer [notifier notify!]]
    [bfuncs.parsing :refer [parse-minterms variables bexpr->bobj ->js-fn ->js-fn-strs]]
-   [bfuncs.steps-card :refer [steps-card]]
+   [bfuncs.steps :refer [steps-card]]
    [bfuncs.style :refer [app-style theme with-styles classes]]
    [bfuncs.tables :refer [expressions-table expressions-table-rows]]
    [bfuncs.typesetting :refer [typesetting-menu expression $ $$ operator-calibration format-latex-var terms-expression]]
@@ -30,23 +30,31 @@
    [reagent-material-ui.core.text-field :refer [text-field]]
    [reagent-material-ui.core.toolbar :refer [toolbar]]
    [reagent-material-ui.core.typography :refer [typography]]
-   [reagent-material-ui.icons.tune-outlined :refer [tune-outlined]]
-   [reagent-material-ui.icons.settings-outlined :refer [settings-outlined]]
    [reagent-material-ui.styles :refer [theme-provider]]
-   [reagent-material-ui.icons.git-hub :refer [git-hub]] ;endregion
+   [reagent-material-ui.icons.edit :refer [edit]] ;endregion
+   ["react-router-dom" :refer [useHistory useLocation]]
    ["/bfuncs/TruthTable" :default TruthTable]
    ["/bfuncs/FunctionSummary" :refer [RadialChart]]
    ["/bfuncs/jsUtils" :refer [functionBytes, bytesToBigInt, functionProperties]])
   )
 
 
+(defn edit-button-f [{:keys [search-string]}]
+  (let [history (useHistory)]
+    [icon-button {:on-click #(j/call history :push
+                               #js {:pathname "/"
+                                    :search search-string})}
+     [edit]]))
+
 (defn results-card [{:keys [title expr vars terms function-properties function-values
-                            results-type minimal-sops minimal-poss anf show-steps]}]
+                            results-type minimal-sops minimal-poss anf show-steps search-string]}]
   [card {:class (classes :results-card)}
    [card-content {:class (classes :card-content :vertical-grid)}
     #_[typography {:variant "h2"}
        title]
-    [typography {:variant "h5"} "Function"]
+    [typography {:variant "h5"}
+     "Function"
+     [:f> edit-button-f {:search-string search-string}]]
     (if (= results-type :expression)
       [expression {:class (classes :main-function
                                    "expression")

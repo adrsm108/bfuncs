@@ -7,7 +7,7 @@
    ))
 
 (defn ^:dev/after-load start []
-  (rdom/render [:> HashRouter [:f> app]] (gdom/getElement "app")))
+  (rdom/render [:> HashRouter [app]] (gdom/getElement "app")))
 
 (defn init []
   (start))

@@ -81,8 +81,8 @@
                      {:main (j/call main :string)
                       :hover (-> main (j/call :darken 0.1) str)
                       :active (-> main (j/call :darken 0.3) str)})]
-    (echol :theme theme)
-    (no-resolve
+    ;(echol :theme theme)
+    (no-resolve ; keeps cursive IDE from trying to resolve new symbols in what follows
      (defstyles
        :chip-container {:display "flex"
                         :flex-flow "row wrap"
@@ -112,6 +112,13 @@
        :app-bar {:z-index (z-index :app-bar)
                  :background (background :paper)
                  :color (primary :main)}
+       :back-button {:display "inline-block"
+                     :transition (create-transition "max-width" {:duration shorter})
+                     &.hidden {:max-width 0
+                               :overflow "hidden"
+                               :visibility "hidden"
+                               button {:tab-index -1}
+                               }}
        :main {:flex-grow 1
               ;:min-height "100vh"
               :width "100%"
@@ -457,7 +464,7 @@
                    * {:pointer-events "none"}}
 
        :title {:flex-grow 1
-               :line-height 2
+               :line-height 1.5
                >a {:color "inherit"
                    :text-decoration "inherit"}
                }
@@ -1108,8 +1115,58 @@
                         ; INVALID {$ [a-zA-Z0-9_] +}
                         }
        :maxterms-input {:extends :input-section}
+
+       :cm-tokens
+       {.cmt-operator {:color (primary :A700)
+                       :font-weight "bold"}
+        .cmt-operator-keyword {:font-style "italic"}
+        .cmt-rel-op {:color (secondary :A400)}
+        .cmt-bool {:color (text :primary)
+                   :font-weight "bold"}
+        .cmt-negated {:color (tertiary :A400)}
+        .cmt-variableName {:color (text :primary)}
+        .cmt-number {:color (primary :A700)}}
+
+       :input-info
+       {:margin-top (spacing 1)
+        :padding-x (spacing 1)
+        :display "grid"
+        :row-gap (spacing 1)
+        :justify-content "center"
+        '(tr :first-child >td) {:padding-top (spacing 1)}
+        '(tr :last-child >td) {:padding-bottom (spacing 1)
+                               :border-bottom table-border}
+        td {:vertical-align "top"}
+        [td th] {:padding (spacing 0.5)}
+        th {:text-align "left"
+            :border-bottom table-border
+            :vertical-align "bottom"}
+        span.syntax {:display "inline"}
+        .syntax
+        {:display "flex"
+         :flex-flow "row wrap"
+         :gap (spacing 0.5)
+         >.x
+         {:display "inline-block"
+          :extends :cm-tokens
+          :mixin (typography :monospace-2)
+          :white-space "pre-wrap"
+          :background (background :paper)
+          :border-radius radius
+          :border-width 1
+          :border-style "solid"
+          :border-color '(rgba 0 0 0 0.23)
+          :position "relative"
+          :padding (spacing 0.5)
+          '(.cmt-operator (:not :first-child) (:not .nospace-before) :before) {:content "' '"}
+          '(.cmt-operator (:not :last-child) (:not .nospace-after) :after) {:content "' '"}
+          }
+         }
+        }
+
        :editor-field
-       {:position "relative"
+       {:extends :cm-tokens
+        :position "relative"
         :box-sizing "border-box"
         &:hover>.cm-editor {:border-color '(rgba 0 0 0 0.87)}
         &.has-errors.show-errors {&:hover>.cm-editor {:border-color (error :main)}
@@ -1130,14 +1187,7 @@
                        :border-width 2}
          >.cm-scroller {:overflow "auto"
                         >.cm-content {:mixin (typography :monospace-2)}}}
-        .cmt-operator {:color (primary :A700)}
-        .cmt-operator-keyword {:font-style "italic"}
-        .cmt-rel-op {:color (secondary :A400)}
-        .cmt-bool {:color (text :primary)
-                   :font-weight "bold"}
-        .cmt-negated {:color (tertiary :A400)}
-        .cmt-variableName {:color (text :primary)}
-        .cmt-number {:color (primary :A700)}
+
         #_#_*::selection {;:color [["white" ] :!important]
                           :background-color '(rgba 215 212 240 0.55)}
         #_#_.cm-selectionM {:background-color [[;'(rgba 215 212 240 0.55)

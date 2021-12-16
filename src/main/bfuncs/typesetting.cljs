@@ -331,9 +331,6 @@
                               false)
         ##-Inf x)))))
 
-
-;; Components
-
 (defn copy-button [value]
   [tooltip {:title "Copy"
             :placement "left"}
@@ -342,8 +339,7 @@
                  :on-click #(notify! {:message (if (clipboard-write! value)
                                                  "Copied!"
                                                  "Clipboard unavailable.")
-                                      :auto-hide-duration
-                                      1000
+                                      :auto-hide-duration 1000
                                       :immediate true})
                  :size "small"}
     [file-copy-outlined]]])
@@ -810,3 +806,10 @@
                                       formats))))
                           data/operations (keys data/operations))))))}])
 ;endregion
+
+(defn format-search-expr [expr]
+  (->> expr (->plaintext) (js/encodeURIComponent) (str "&e=")))
+
+(defn format-search-terms [[terms undefined]]
+  (str "&m=" (->> terms (str-join ",") (js/encodeURIComponent))
+       "&d=" (->> undefined (str-join ",") (js/encodeURIComponent))))
