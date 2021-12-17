@@ -4,7 +4,7 @@
    ["/bfuncs/VariablesDragDrop" :default VariablesDragDrop]
    [applied-science.js-interop :as j]
    [bfuncs.data :refer [replace-operands]]
-   [bfuncs.algebra :refer [|| && ! ->SOP ->POS &&* ||* *cancellation-rules*]]
+   [bfuncs.algebra :refer [|| && ! ->SOP ->POS &&* ||* *cancellation-rules* bprod?]]
    [bfuncs.minimization :as bmin :refer [covered-terms minimization-steps quine-mccluskey-meta
                                          implicant? covers? int->imp imp->bobj strict-term->int
                                          consistent? imp->bobj-fn index-bobj minterms maxterms
@@ -14,7 +14,7 @@
    [bfuncs.typesetting-data :refer [default-macros]]
    [bfuncs.reduction-steps :refer [reduction-steps-section]]
    [bfuncs.typesetting :refer [expression $ $$ ->latex format-latex-var katex-options
-                               terms-expression
+                               terms-expression align-eq
                                format-minterm format-maxterm
                                format-prime-implicant format-prime-implicate
                                format-var format-covered-var format-prime-var]]
@@ -65,7 +65,8 @@
    [reagent-material-ui.icons.expand-more-outlined :refer [expand-more-outlined]]
    [reagent-material-ui.icons.edit :refer [edit]]
    ["react-router-dom" :refer [useHistory useLocation]]
-   [reagent.core :as r :refer-macros [with-let]]))
+   [reagent.core :as r :refer-macros [with-let]]
+   [clojure.string :as string]))
 
 (defn edit-button-f [{:keys [search-string]}]
   (let [history (useHistory)]
@@ -113,6 +114,10 @@
                   :color "textSecondary"
                   :class "section-count"}
       (str "(" n ")")]]]))
+
+(defn- normal-weight [& args]
+  [:span {:style {:font-weight "normal"}}
+   (str/join args)])
 
 (defn- data->js [data !sel]
   (let [{:keys [primes terms covers essentials remaining]} data
@@ -292,8 +297,8 @@
    number])
 
 (defn- step [{:keys [number result default-open last loop]
-              :or {default-open true}} label content]
-  (with-let [!open (r/atom true)
+              :or {default-open true result false}} label content]
+  (with-let [!open (r/atom result)
              toggle (fn [e]
                       (j/call e :stopPropagation)
                       (toggle! !open))]
@@ -429,58 +434,56 @@
            [$ {:class "rel-op"} "="]
            [$ (format-term ex-term)]]]]])
      [step {:number 5 :result true :last true}
-      [step-summary (ifsop "Minterms" "Maxterms") [:span.normal " (" nterms ")"]]
-      (if (zero? nterms)
-        [:div {:class (classes :terms-table)}
-         "No terms."]
-        [:div {:class (classes :terms-table)}
-         (for' [term terms]
-           ^{:key term} [term-chip term format-term !sel])])]]))
+      [step-summary "Results"]
+      [:div {:class (classes :vertical-grid)}
+       [typography {:variant "h6"}
+        (ifsop "Minterms" "Maxterms") (normal-weight " (" nterms ")")]
+       (if (zero? nterms)
+         [:div {:class (classes :terms-table)}
+          "No terms."]
+         [:div {:class (classes :terms-table)}
+          (for' [term terms]
+            ^{:key term} [term-chip term format-term !sel])])]]]))
 
-(defn- find-terms-steps-from-terms [{:keys [!vars !sel data format-term ifsop]}]
-  (let [{:keys [terms target-form inverted-terms input-type]} data
+(defn- find-terms-steps-from-terms [{:keys [!sel data format-term ifsop]}]
+  (let [{:keys [terms term-word input-type]} data
         nterms (count terms)
         must-invert (ifsop (= input-type :maxterms)
-                           (= input-type :minterms))
-        ]
+                           (= input-type :minterms))]
     [:div {:class (classes :steps)}
-     (if must-invert
-       [:<>
-        [step {:number 1}
-         [step-summary "others"]]]
-
+     (when must-invert
        [step {:number 1}
+        [step-summary "Convert " (ifsop "maxterms" "minterms") " to " term-word "s"]
         [typography {:component "div"}
-         "We were given minterms. That's convenient!"]])
-     [step {:number 4 :result true :last true}
-      [step-summary (ifsop "Minterms" "Maxterms") [:span.normal " (" nterms ")"]]
-      (if (zero? nterms)
-        [:div {:class (classes :terms-table)}
-         "No terms."]
-        [:div {:class (classes :terms-table)}
-         (for' [term terms]
-           ^{:key term} [term-chip term format-term !sel])])
-      ]
-     ])
-  )
+         "The " term-word "s of" [$ "F"] "are the terms for which the function is "
+         (ifsop "true." "false.")]])
+     [step {:result true :last true}
+      [step-summary "Results"]
+      [:div {:class (classes :vertical-grid)}
+       [typography {:variant "h6"}
+        (ifsop "Minterms" "Maxterms") (normal-weight " (" nterms ")")]
+       (if (zero? nterms)
+         [:div {:class (classes :terms-table)}
+          "No terms."]
+         [:div {:class (classes :terms-table)}
+          (for' [term terms]
+            ^{:key term} [term-chip term format-term !sel])])]]]))
 
 (defn terms-section [{:keys [data ifsop] :as props}]
-  (let [{:keys [vars expr input-terms input-type unspecified]} data]
+  (let [{:keys [input-type]} data]
     [:<>
      [typography {:variant "h5"}
-      (str "Find " (ifsop "Minterms" "Maxterms"))]
+      (str "1. Find " (ifsop "Minterms" "Maxterms"))]
      (if (= input-type :expression)
        [find-terms-steps-from-expression props]
-       [find-terms-steps-from-terms props])
-     ]
-    ))
+       [find-terms-steps-from-terms props])]))
 
 (defn- conditions [& conds]
   (into [typography {:component "ol"
                      :class (classes :conditions)}]
         conds))
 
-(defn- introduction-section [{:keys [data ifsop ifsop-implies format-prime search-string] :as data-map}]
+(defn- introduction-section [{:keys [data ifsop ifsop-implies format-prime search-string outer-op] :as data-map}]
   (let [{:keys [primes target-form imp-word term-word]} data
         nprimes (count primes)]
     [:<>
@@ -490,7 +493,7 @@
         [typography {:variant "h5"}
          "Function"
 
-        [:f> edit-button-f {:search-string search-string}]]
+         [:f> edit-button-f {:search-string search-string}]]
         [typography {:component "div"}
          "Let "
          [$ (str-join "F(" "," ")=" format-latex-var vars)]
@@ -501,59 +504,53 @@
            [terms-expression {input-type input-terms
                               :unspecified unspecified
                               :class (classes :main-function)}])]])
-     [typography {:variant "h5"} "Motivation"]
-     [typography {:component "div"}
+     [typography {:variant "h5"}
+      "Motivation"]
+     [typography {:component "div", :paragraph true}
       "An " [:em imp-word] [$ "X"] " of a Boolean function " [$ "F"] "is any "
       (ifsop "conjunction" "disjunction") " of literals (variables and their complements) where "
       [$ (ifsop-implies "X" "F") "."]
       "We say the " imp-word [$ "X_1"] [:em "covers"] imp-word [$ "X_2"] "when every literal in"
       [$ "X_1"] "is also a literal in" [$ "X_2" ","] "or equivalently," [$ (ifsop-implies "X_2" "X_1") "."]
-      "An " imp-word " is " [:em "prime"] " if it is not covered by any other " imp-word "s of the same function."
-      ]
-     [typography {:component "div"}
+      "An " imp-word " is " [:em "prime"] " if it is not covered by any other " imp-word "s of the same function."]
+     [typography {:component "div", :paragraph true}
       "We want to find a " [:em "minimal realization"] " of" [$ "F"] "as a " (ifsop "sum of products" "product of sums")
       "—a function" [$ "F^*"] "such that:"
       [conditions
        [:li [$ "F^* \\iff F"]]
-       [:li [expression {:pre "F^* = "} [(ifsop :OR :AND) "X_1" "X_2" "\\dots" "X_m"]]
+       [:li [$ (str "F^* = " (->latex [outer-op "X_1" "X_2" "\\dots" "X_m"]))]
         " where the " [$ "X_i"] " are " (ifsop "products" "sums") " of literals."]
        [:li "There exists no expression satisfying the previous properties with fewer total literals than " [$ "F^*" "."]]]
       "From (1) and (2), it follows immediately that these " [$ "X_1, X_2, \\dots"] " are " imp-word "s of" [$ "F" "."]
       "Moreover, they must be prime; if" [$ "X_k"] "could be covered by a different "
       imp-word [$ "X_k'" ","] "then the function"
-      [expression {:pre "{F^*}' = " :var-fn identity}
-       [(ifsop :OR :AND) "X_1" "\\dots" "X_{k-1}" "X_k'" "\\dots" "X_m"]]
+      [$ (str "{F^*}' = " (->latex [outer-op "X_1" "\\dots" "X_{k-1}" "X_k'" "\\dots" "X_m"] identity))]
       "would violate (3)."]
-     [typography {:component "div"}
+     [typography {:component "div", :paragraph true}
       "Consequently, if" [$ (str (format-prime 1) ", " (format-prime 2) ", \\dots")]
       "are the prime " imp-word "s of the function" [$ "F" ","]
       "then minimizing it is equivalent to finding some (not necessarily unique) subset"
       [$ (str "\\impset \\subseteq \\{" (format-prime 1) ", " (format-prime 2) ", \\dots \\}")]
       "for which"
       [$ (str "F^* = " (ifsop "\\sum" "\\prod") "_{" (format-prime) "\\in \\impset}" (format-prime))]
-      "is minimal."]
-     [typography {:component "div"}
-      "The " [:em "Quine-McCluskey"]
-      " algorithm is a technique for minimizing a Boolean function by determining its prime implicants and then determining a minimal subset "
-      ]])
-  )
+      "is minimal."]]))
 
 (defn- base2 [x]
-  [:span x [:sub "2"]])
+  [:span.base-2 x [:sub "2"]])
 
-(defn- prime-implicants-section [{:keys [data ifsop ifsop-implies format-var] :as data-map}]
-  (let [{:keys [primes target-form imp-word term-word vars steps]} data
+(defn- prime-implicants-section [{:keys [data ifsop inner-op] :as data-map}]
+  (let [{:keys [primes imp-word term-word steps]} data
         nprimes (count primes)
         lit (ifsop (fn [x one?] (case one? true x false [:NOT x] nil))
                    (fn [x one?] (case one? true [:NOT x] false x nil)))
         mapsto [$ {:class "rel-op"} "\\mapsto"]
-        inner-op (ifsop :AND :OR)
-        example-imp (fn [& vs] [$ {:class "ex-imp"} (->latex (into [inner-op]
-                                                                   (keep-indexed #(lit (str "\\var_" (- 3 %1)) %2))
-                                                                   vs))])]
+        example-imp (fn [& vs] [$ {:class "ex-imp"}
+                                (->latex (into [inner-op]
+                                               (keep-indexed #(lit (str "\\var_" (- 3 %1)) %2))
+                                               vs))])]
     [:<>
      [typography {:variant "h5"}
-      "Find Prime " (ifsop "Implicants" "Implicates")]
+      "2. Find Prime " (ifsop "Implicants" "Implicates")]
      [:div.steps
       [step {:number 1}
        [step-summary "Group " imp-word "s by the number of 1's in their binary representations."]
@@ -563,33 +560,37 @@
       [step {:number 2}
        [step-summary "Identify and merge pairs of " imp-word "s whose binary forms differ in exactly one position."]
        [:<>
-        [typography {:component "div" :style {:margin-bottom 8}}
+        [typography {:component "div"
+                     :paragraph true}
          "If " [$ "F"] "has two " imp-word "s that differ in exactly one position, then the expression derived by"
          " removing the conflicting variable is an " imp-word " of" [$ "F" ","] "that covers both of the original "
          imp-word "s. The removed variable is often expressed as a dash in the binary representation."]
         [typography {:component "div"}
-         "For example, supposing we were working with some 4-variable function, " (base2 "1010") "and" (base2 "1110")
+         "With a hypothetical 4-variable function, for example, " (base2 "1010") "and" (base2 "1110")
          "would be merged as" (base2 "1-10") ". This corresponds to the observation that the " imp-word "s"
          [:div.example-imps
           (base2 "1010") mapsto (example-imp true false true false)
-          (base2 "1110") mapsto (example-imp true true true false)]
-         "are both covered by a more general " imp-word ":"
-         [:div.example-imps
+          (base2 "1110") mapsto (example-imp true true true false)
+          [:div.intertext "are both covered by a more general " imp-word ":"]
           (base2 "1‒10") mapsto (conj (example-imp true nil true false) ".")]]]]
       [step {:number 3}
-       [step-summary "Mark any " imp-word "s which can not be merged as prime."]
-       ]
+       [step-summary "Mark any " imp-word "s that can not be merged."]
+       [typography {:component "div"}
+        (str/capitalize imp-word) "s that can not be merged are prime."]]
       [step {:number 4 :loop true}
        [step-summary "Return to step 1 with the newly merged " imp-word "s, removing duplicates as necessary."]
        [typography {:component "div"}
         "Repeat until no further merges can be made."]]
       [step {:number 5 :result true}
-       [step-summary "Merging Steps" [:span.normal " (" (count steps) ")"]
-        [:span.normal " and "] "Prime " (ifsop "Implicants" "Implicates") [:span.normal " (" nprimes ")"]]
+       [step-summary "Results"]
+       #_[step-summary (ifsop "Merging Steps & Prime Implicants"
+                              "Merging Steps & Prime Implicates")]
        [:div {:class (classes :vertical-grid)}
         [reduction-steps-section data-map]
-        [typography {:variant "subtitle1"}
-         "Prime " (ifsop "Implicants" "Implicates")]
+        [typography {:variant "h6"}
+         (ifsop "Prime Implicants" "Prime Implicates")
+         [:span {:style {:font-weight "normal"}}
+          " (" nprimes ")"]]
         [prime-implicants-grid data-map]]]]]))
 
 (defn- coverage-table-section [{:keys [data format-prime format-term ifsop ifsop-implies] :as data-map}]
@@ -597,11 +598,10 @@
     (if (zero? (count terms))
       [:<>
        [typography {:component "div"}
-        "Zero terms"]
-       ]
+        "Zero terms"]]
       [:<>
        [typography {:variant "h5"}
-        "Create A Coverage Table"]
+        "3. Create Coverage Table, Find Essential Prime " (ifsop "Implicants" "Implicates")]
        [:div.steps
         [step {:number 1}
          [step-summary "Create a table with one row for each prime " imp-word ", and one column for each " term-word "."]]
@@ -611,47 +611,36 @@
            [step-summary "In each row" [$ "i" ","] "mark all columns" [$ "j"]
             "where the corresponding prime " imp-word [$ pi] "covers " term-word [$ mj "."]]])
         [step {:number 3}
-         [step-summary "Identify any essential prime " imp-word "s."]
+         [step-summary "Identify essential prime " imp-word "s."]
          [typography {:component "div"}
           "A prime implicant is considered " [:em "essential"]
           " if it uniquely covers a particular " term-word ". Since " [$ "F^*"]
           "covers all " term-word "s, we may conclude that all essential prime " imp-word "s are necessarily in" [$ "\\impset" "."]
           " Thus, we can remove them, and all of the " term-word "s they cover from the table."]]
         [step {:number 3}
-         [step-summary "Remove any essential prime " imp-word "s and " term-word "s they cover from the table."]
-         ]
+         [step-summary "Remove any essential prime " imp-word "s and " term-word "s they cover from the table."]]
         [step {:number 4, :last true, :result true}
-         [step-summary "Coverage Table" [:span.normal " and "]
-          (str "Essential Prime " imp-word "s")
-          [:span.normal " (" (count essentials) ")"]]
+         [step-summary "Results"]
+         #_[step-summary "Coverage Table & "
+            (ifsop "Essential Prime Implicants" "Essential Prime Implicates")
+            [:span.normal " (" (count essentials) ")"]]
          [:div {:class (classes :vertical-grid)}
-          [typography {:variant "subtitle1"} "Coverage Table"]
-          [coverage-table
-           (mp :table-props {:formatColumnHeader format-term
-                             :minColumnWidth (+ 32 (* (maximum int-digits terms) 7))}
-               data-map)]
+          [typography {:variant "h6"}
+           "Coverage Table"]
+          [coverage-table {:table-props {:formatColumnHeader format-term
+                                         :minColumnWidth (+ 32 (* (maximum int-digits terms) 7))}
+                           :data-map data-map}]
           [typography {:component "div"}
            (if (empty? essentials)
              [typography {:variant "subtitle1"}
               "No essential prime " imp-word "s exist."]
              [:<>
-              [typography {:variant "subtitle1"}
-               "Essential Prime " (ifsop "Implicants" "Implicates")]
-              [essentials-table data-map]
-              ]
-             )
-           (if (empty? essentials)
-             "Since there are no essential prime implicants in this case, "
-             "We remove all rows corresponding to essential primes,
-             columns corresponding to any terms those essential primes cover.")]]
-         ]]
+              [typography {:variant "h6" :class (classes :top-margin)}
+               (ifsop "Essential Prime Implicants" "Essential Prime Implicates")]
+              [essentials-table data-map]])]]]]])))
 
-       ]
-      )
-    ))
-
-(defn- petricks-method-section [{:keys [data format-term format-prime ifsop imp-word] :as data-map}]
-  (let [{:keys [primes vars terms term-length target-form term-word imp-word remaining essentials]} (echol :petdat data)
+(defn- petricks-method-section [{:keys [data format-term format-prime ifsop imp-word outer-op] :as data-map}]
+  (let [{:keys [primes vars terms term-length target-form term-word imp-word remaining essentials min-cover]} (echol :petdat data)
         varp (apply && (map (applied ||) (vals remaining)))
         espanded (->SOP varp)
         remaining-terms (map (partial get terms) (keys remaining))
@@ -662,185 +651,200 @@
         rem-term-formatted (format-term rem-term)
         ->bobj (imp->bobj-fn target-form (vec (range term-length)))
         ess-primes (keys essentials)
-        prime-bobj (into [(ifsop :OR :AND)] ess-primes)
-        indexed-expr (into [(ifsop :OR :AND)]
-                           (map #(->bobj (get primes %)))
-                           ess-primes)
         format-vars (format-var term-length)]
-    (cond
-      (empty? remaining-terms)
-      [typography {:component "div"}
-       "Since all " term-word "s are covered by an essential " imp-word
-       ", and a minimal " (ifsop "sum" "product")
-       " must include all prime " imp-word "s as terms, it follows that the minimal form is exactly "
-       [expression {:var-fn format-prime
-                    :display true}
-        prime-bobj]
-       [expression {:pre " = "
-                    :var-fn format-vars
-                    :display true}
-        indexed-expr]
-       [expression {:pre " = "
-                    :var-fn #(format-latex-var (get vars %))
-                    :display true}
-        indexed-expr]
-       ]
-
-      (singleton? remaining-terms)
-      [:<>
-       [typography {:component "div"}
-        "With essential prime " imp-word "s removed, only the " term-word
-        [$ (format-term (first remaining-terms))] "remains uncovered."
-        " It suffices to choose a prime " imp-word " that covers it with minimal terms."
-        " Of the non-essential prime " imp-word "s that cover it"
-        [expression {:var-fn format-prime
-                     :display true}
-         prime-bobj]
-        [expression {:pre " = "
-                     :var-fn format-vars
-                     :display true}
-         indexed-expr]
-        [expression {:pre " = "
-                     :var-fn #(format-latex-var (get vars %))
-                     :display true}
-         indexed-expr]
-        ]
-       ]
-
-      :else
-      [:<>
-       [typography {:component "div"}
-        "After removing essential prime " imp-word "s and the " term-word "s they cover from the table, columns "
-        (str/join ", " (butlast remaining-terms))
-        (if (> (count remaining-terms) 2) ",")
-        " and "
-        (last remaining-terms)
-        " remain uncovered."]
-       [typography {:variant "h5"} "Petrick's Method"]
-       [:div.steps
-        [step {:number 1}
-         [step-summary "Derive new boolean variables from the remaining rows and columns in the reduced coverage table."]
+    [:<>
+     [typography {:variant "h5"}
+      "4. Identify Covering Subsets of Prime " (ifsop "Implicants" "Implicates")]
+     (cond
+       (empty? remaining-terms)
+       (let [prime-expr (into [outer-op] ess-primes)
+             indexed-expr (into [outer-op]
+                                (map #(->bobj (get primes %)))
+                                ess-primes)]
          [typography {:component "div"}
-          "For each uncovered " term-word [$ (format-term :i) ","]
-          "let" [$ "\\cvar_{i}"] "be a boolean variable which is true when"
-          [$ (format-term :i)] "is covered by some element of" [$ "\\impset" "."]
-          "The statement that" [$ "F^*"] "covers all remaining terms is equivalent to the conjunction of these"
-          [$ "\\cvar_{i}" ":"]
-          [expression {:class "original"
-                       :pre "\\tag{1}"
-                       :post "."
-                       :var-fn format-covered-var
-                       :display true
-                       :math-props {:options {:displayMode true}}}
-           (apply && remaining-terms)]
-          "This represents the assertion that" [$ "F^*"] "covers" [$ (format-term (first remaining-terms)) ","] "and"
-          [$ "F^*"] "covers" [$ (format-term (second remaining-terms)) ","] "and etc."]]
-        [step {:number 2}
-         [step-summary "Define a function that is true when all remaining " term-word "s are covered."]
+          "Since all " term-word "s are covered by an essential " imp-word
+          ", and a minimal " (ifsop "sum" "product")
+          " must include all prime " imp-word "s as terms, it follows that the minimal form is exactly "
+          [align-eq {}
+           (->latex prime-expr format-prime)
+           (->latex indexed-expr format-vars)
+           (str (->latex indexed-expr #(format-latex-var (get vars %))) ".")]])
+
+       (singleton? remaining-terms)
+       (let [chosen-prime (if (int? min-cover)
+                            min-cover
+                            (js/console.error (pr-str "min cover " min-cover " is not an int")))
+             ess-primes-plus-chosen (conj ess-primes chosen-prime)
+             prime-expr (into [outer-op] ess-primes-plus-chosen)
+             indexed-expr (into [outer-op]
+                                (map #(->bobj (get primes %)))
+                                ess-primes-plus-chosen)]
          [:<>
           [typography {:component "div"}
-           "For each remaining prime " imp-word [$ (format-prime :i) ","]
-           "let" [$ "\\pvar_{i}"] "be a boolean variable which is true when"
-           [$ (str (format-prime :i) " \\in \\impset") "."]
-           "It is our goal to rewrite (1) in terms of these new variables" [$ "\\pvar_i" "."]
-           ]
-          [typography {:component "div"}
-           "With essential rows hidden, it's easy to see that"
-           (case nrem-cov
-             2 [:<>
-                [$ (format-prime (first rem-cov))]
-                "and"
-                [$ (format-prime (second rem-cov))]]
-             [:<>
-              (for' [c (butlast rem-cov)]
-                [$ {:key c} (format-prime c) ","])
-              "and"
-              [$ (format-prime (last rem-cov))]])
-           "are the only prime implicants that cover" [$ rem-term-formatted "."]
-           "Thus,"
-           [expression {:pre (str "\\cvar_{" rem-term "} \\iff ")
-                        :var-fn format-prime-var
-                        :display false
-                        :punct ","}
-            (apply || rem-cov)]
-           "since" [$ "F^*"] "covers" [$ rem-term-formatted] "if and only if"
-           (case nrem-cov
-             1 [$ (str (format-prime (first rem-cov)) "\\in \\impset") "."]
-             2 [:<>
-                [$ (str (format-prime (first rem-cov)) "\\in \\impset")]
-                "or"
-                [$ (str (format-prime (second rem-cov)) "\\in \\impset") "."]]
-             (interpose "or"
-                        (fori' [i :index, c rem-cov]
-                          [$ {:key c} (str (format-prime c) "\\in \\impset") (if (< i (dec nrem-cov)) "," ".")])))
-           "Applying the same reasoning to each uncovered term gives the following set of relations:"
-           [implications-grid data-map]
+           "With essential prime " imp-word "s removed, only the " term-word
+           [$ (format-term (first remaining-terms))] "remains uncovered."
+           " It suffices to choose a prime " imp-word " with a minimal number of literal that covers it.
+         One such prime " imp-word " is " [$ (format-prime chosen-prime) "."]
+           "So, a minimal form is"
+           [align-eq {}
+            (->latex (echo :primeboj prime-expr) format-prime)
+            (->latex indexed-expr format-vars)
+            (str (->latex indexed-expr #(format-latex-var (get vars %))) ".")]]])
 
-           "Substituting, we find (1) is equivalent to"
-           [expression {:var-fn format-prime-var
-                        :display true
-                        :punct "."}
-            varp]]]]
-        (let [first-espanded (first espanded)]
-          [step {:number 3}
-           [step-summary "Expand to a sum of products and simplify."]
-           [typography {:component "div"}
-            "Recursively applying the identities"
-            [$ (str (->latex [:AND "A" [:OR "B" "C"]])
-                    " = "
-                    (->latex [:OR [:AND "A" "B"] [:AND "A" "C"]]))]
-            "and"
-            [$ (str (->latex [:OR "A" [:AND "A" "B"]])
-                    " = "
-                    (->latex [:var "A"]))]
-            "results in the expression"
-            [expression {:var-fn format-prime-var
-                         :post "."
-                         :display true}
-             espanded]
-            "Each term in the above sum represents a set of prime " imp-word "s, which, when taken together, cover all remaining "
-            term-word "s. For example,"
-            [$ (->latex first-espanded format-prime-var)]
-            "represents the choice of"
-            [$ (str-join "" ", " "" format-prime (butlast first-espanded))]
-            " and " [$ (format-prime (last first-espanded)) "."]
-            ]])
-        [step {:number 4, :last true}
-         [step-summary "Select products with the"]
-         ]]
-       [typography
-        (when (seq essentials)
-          [:<>
-           "After removing essential implicants and the columns they cover from the table, we are left with "
-           (verbalize-coll "column" remaining-terms)
-           ". "])]
-       ])
-    )
-  )
+       :else
+       (let [chosen-prime-prod (if (bprod? min-cover)
+                                 min-cover
+                                 (js/console.error (pr-str "min cover " min-cover " is not a bprod")))
+             ess-primes-plus-chosen (into ess-primes chosen-prime-prod)
+             prime-expr (into [outer-op] ess-primes-plus-chosen)
+             indexed-expr (into [outer-op]
+                                (map #(->bobj (get primes %)))
+                                ess-primes-plus-chosen)]
+         [:<>
+          [typography {:component "div"}
+           "After removing essential prime " imp-word "s and the " term-word "s they cover from the table, columns "
+           (str/join ", " (butlast remaining-terms))
+           (if (> (count remaining-terms) 2) ",")
+           " and "
+           (last remaining-terms)
+           " remain uncovered."]
+          [typography {:variant "h5"} "Petrick's Method"]
+          [:div.steps
+           [step {:number 1}
+            [step-summary "Derive new boolean variables from the remaining rows and columns in the reduced coverage table."]
+            [typography {:component "div"}
+             "For each uncovered " term-word [$ (format-term :i) ","]
+             "let" [$ "\\cvar_{i}"] "be a boolean variable which is true when"
+             [$ (format-term :i)] "is covered by some element of" [$ "\\impset" "."]
+             "The statement that" [$ "F^*"] "covers all remaining terms is equivalent to the conjunction of these"
+             [$ "\\cvar_{i}" ":"]
+             [expression {:class "original"
+                          :pre "\\tag{1}"
+                          :post "."
+                          :var-fn format-covered-var
+                          :display true
+                          :math-props {:options {:displayMode true}}}
+              (apply && remaining-terms)]
+             "This represents the assertion that" [$ "F^*"] "covers" [$ (format-term (first remaining-terms)) ","] "and"
+             [$ "F^*"] "covers" [$ (format-term (second remaining-terms)) ","] "and etc."]]
+           [step {:number 2}
+            [step-summary "Define a function that is true when all remaining " term-word "s are covered."]
+            [:<>
+             [typography {:component "div"}
+              "For each remaining prime " imp-word [$ (format-prime :i) ","]
+              "let" [$ "\\pvar_{i}"] "be a boolean variable which is true when"
+              [$ (str (format-prime :i) " \\in \\impset") "."]
+              "It is our goal to rewrite (1) in terms of these new variables" [$ "\\pvar_i" "."]
+              ]
+             [typography {:component "div"}
+              "With essential rows hidden, it's easy to see that"
+              (case nrem-cov
+                2 [:<>
+                   [$ (format-prime (first rem-cov))]
+                   "and"
+                   [$ (format-prime (second rem-cov))]]
+                [:<>
+                 (for' [c (butlast rem-cov)]
+                   [$ {:key c} (format-prime c) ","])
+                 "and"
+                 [$ (format-prime (last rem-cov))]])
+              "are the only prime implicants that cover" [$ rem-term-formatted "."]
+              "Thus,"
+              [expression {:pre (str "\\cvar_{" rem-term "} \\iff ")
+                           :var-fn format-prime-var
+                           :display false
+                           :punct ","}
+               (apply || rem-cov)]
+              "since" [$ "F^*"] "covers" [$ rem-term-formatted] "if and only if"
+              (case nrem-cov
+                1 [$ (str (format-prime (first rem-cov)) "\\in \\impset") "."]
+                2 [:<>
+                   [$ (str (format-prime (first rem-cov)) "\\in \\impset")]
+                   "or"
+                   [$ (str (format-prime (second rem-cov)) "\\in \\impset") "."]]
+                (interpose "or"
+                           (fori' [i :index, c rem-cov]
+                             [$ {:key c} (str (format-prime c) "\\in \\impset") (if (< i (dec nrem-cov)) "," ".")])))
+              "Applying the same reasoning to each uncovered term gives the following set of relations:"
+              [implications-grid data-map]
+
+              "Substituting, we find (1) is equivalent to"
+              [expression {:var-fn format-prime-var
+                           :display true
+                           :punct "."}
+               varp]]]]
+           (let [first-espanded (first espanded)]
+             [step {:number 3}
+              [step-summary "Expand to a sum of products and simplify."]
+              [typography {:component "div"}
+               "Recursively applying the identities"
+               [$ (str (->latex [:AND "A" [:OR "B" "C"]])
+                       " = "
+                       (->latex [:OR [:AND "A" "B"] [:AND "A" "C"]]))]
+               "and"
+               [$ (str (->latex [:OR "A" [:AND "A" "B"]])
+                       " = "
+                       (->latex [:var "A"]))]
+               "results in the expression"
+               [expression {:var-fn format-prime-var
+                            :post "."
+                            :display true}
+                espanded]
+               "Each term in the above sum represents a set of prime " imp-word "s, which, when taken together, cover all remaining "
+               term-word "s. For example,"
+               [$ (->latex first-espanded format-prime-var)]
+               "represents the choice of"
+               [$ (str-join "" ", " "" format-prime (butlast first-espanded))]
+               " and " [$ (format-prime (last first-espanded)) "."]
+               ]])
+           [step {:number 4}
+            [step-summary "Identify the product(s) corresponding to sets of prime " imp-word "s with the fewest total literals."]
+            [:div
+             [typography {:component "div", :paragraph true}
+              "In our case, " [$ (->latex chosen-prime-prod format-prime-var) ","]
+              "which corresponds to the set" [$ (str-join "\\{" "," "\\}" format-prime chosen-prime-prod) ","]
+              "is one such product."]
+             [typography {:component "div"}
+              "Thus, "
+              [$ (str
+                  "\\impset = "
+                  (str-join "\\{" "," "\\}" format-prime ess-primes)
+                  " \\cup "
+                  (str-join "\\{" "," "\\}" format-prime chosen-prime-prod)) ";"]
+              "the union of this set and our essential prime " imp-word "s."]]]
+           [step {:number 5, :result true}
+            [step-summary "Results"]
+            [:div {:class (classes :vertical-grid)}
+             [typography {:variant "h6"}
+              "Minimal Form"]
+             [align-eq {}
+              (str (ifsop "\\sum" "\\prod") "_{" (format-prime) "\\in \\impset}" (format-prime))
+              (->latex prime-expr format-prime)
+              (->latex indexed-expr format-vars)
+              (str (->latex indexed-expr #(format-latex-var (get vars %))) ".")]]]]]))]))
 
 (defn steps-card [{:keys [title expr !vars target-form results-type terms search-string]
-                   :or {title "Minimization Steps" target-form :SOP}}]
+                   :or {target-form :SOP}}]
   (with-let [!data (r/atom nil)]
     (let [{:keys [target-form] :as data}
           (reset! !data
-                  (minimization-steps
-                   target-form
-                   @!vars
-                   (if (= results-type :expression) expr terms)))
+                  (minimization-steps target-form
+                                      @!vars
+                                      (if (= results-type :expression) expr terms)))
           !sel (r/atom {:selection nil, :page [0 1]})
-          format-term (case target-form
-                        :SOP format-minterm
-                        :POS format-maxterm)
-          format-prime (case target-form
-                         :SOP format-prime-implicant
-                         :POS format-prime-implicate)
           ifsop (case target-form
                   :SOP (fn [a _] a)
                   :POS (fn [_ b] b))
-          ifsop-implies (case target-form
-                          :SOP (fn [a b] (str a " \\implies " b))
-                          :POS (fn [a b] (str b " \\implies " a)))
-          data-map (mp data !vars !sel format-term format-prime ifsop ifsop-implies search-string)]
+          format-term (ifsop format-minterm
+                             format-maxterm)
+          format-prime (ifsop format-prime-implicant
+                              format-prime-implicate)
+          ifsop-implies (ifsop (fn [a b] (str a " \\implies " b))
+                               (fn [a b] (str b " \\implies " a)))
+          outer-op (ifsop :OR :AND)
+          inner-op (ifsop :AND :OR)
+          data-map (mp data !vars !sel format-term format-prime ifsop ifsop-implies search-string outer-op inner-op)
+          ]
       [card {:class (classes :steps-card :vertical-grid)
              :on-click (fn [e]
                          (when (j/get-in e [:target :closest])
@@ -852,8 +856,9 @@
        ;              :title title}]
        ;       [divider {:class (:divider classes)}]
        [card-content {:class (classes :card-content)}
-        [typography {:variant "h5"} title]
+        [typography {:variant "h4"} title]
         [introduction-section data-map]
+        [typography {:variant "h4"} "Steps"]
         [terms-section data-map]
         [prime-implicants-section data-map]
         [coverage-table-section data-map]

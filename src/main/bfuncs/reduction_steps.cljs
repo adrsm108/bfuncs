@@ -169,7 +169,7 @@
                                           :col-span (+ 3 nvars)}
                               [:div.title
                                [typography {:variant "h6"}
-                                (str "Step " (inc i))]
+                                (str "Merging Step " (inc i))]
                                [typography {:variant "body1"
                                             :color "textSecondary"
                                             :class "count"}

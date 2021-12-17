@@ -418,6 +418,13 @@
      :ref (katex-render latex punct true macros options)
      :style (hanging-indent indent)}]))
 
+(defn align-eq [{:keys [equals class] :or {equals "="}} & items]
+  (into [:div {:class (classes :align-eq class)}]
+        (comp
+         (map (fn [x] [$ x]))
+         (interpose [$ equals]))
+        items))
+
 (defn- copy-panel [{:keys [!formatters var-fn]
                     :or {!formatters !g-formatters}}
                    expr]

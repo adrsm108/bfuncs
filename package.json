@@ -55,7 +55,8 @@
     "watch-tsc": "tsc --watch",
     "babel-watch": "babel src/ts --out-dir src/gen --extensions \".ts,.tsx\" --source-maps inline --watch",
     "deploy": "shadow-cljs release app && gh-pages --dist public --src {*,!(js)/**,js/*}",
-    "gh-pages": "gh-pages --dist public --src {*,!(js)/**,js/*}"
+    "gh-pages": "gh-pages --dist public --src {*,!(js)/**,js/*}",
+    "build-bexpr-grammar": "lezer-generator .\\src\\ts\\bfuncs\\bexpr.grammar -o .\\src\\gen\\bfuncs\\bexprParser.js --cjs"
   },
   "prettier": {
     "printWidth": 100

@@ -247,14 +247,10 @@
        [typography {:variant "h4"
                     :no-wrap true
                     :class (classes :title)}
-        [:a {:href "/"
-             #_#_:on-click (fn []
-                             (reset-state!)
-                             (if (= "/" (j/get location :pathname))
-                               (reset! !input-key "")
-                               (do
-                                 (reset! !input-key (j/get location :search))
-                                 (.push history "/"))))}
+        [:> Link {:to "/"
+                  :on-click (fn []
+                              (reset-nil! !_search-string)
+                              (reset-state!))}
          "Boolean Functions"]]
        [icon-button {:color "inherit"
                      :href "https://github.com/adrsm108/bfuncs"
@@ -314,7 +310,7 @@
 
         [:> Route {:path "/steps"}
          (if @!processed
-           [steps-card {:title "Minimization Steps"
+           [steps-card {:title "Quine-McCluskey Algorithm"
                         :results-type @!results-type
                         :expr @!parsed-expression
                         :!vars !parsed-variables

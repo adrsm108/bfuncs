@@ -525,9 +525,14 @@
                                    :justify-content "center"
                                    :align-items "center"
                                    :justfy-items "center"
-                                   :grid-template-columns "auto auto auto"
-                                   .rel-op {:padding-x (spacing 1)}
-                                   .ex-imp {:justify-self "center"}
+                                   :grid-template-columns "1fr auto auto auto 1fr"
+                                   :margin-y (spacing 0.5)
+                                   .base-2 {:grid-column-start 2}
+                                   .intertext {:grid-column "1 / -1"
+                                               :margin-y (spacing 0.5)}
+                                   .rel-op {:padding-x (spacing 1)
+                                            :grid-column-start 3}
+                                   .ex-imp {:grid-column-start 4}
                                    }
                     .dnd-container {:display "flex"
                                     :justify-content "center"}
@@ -695,6 +700,14 @@
                               :justify-content "flex-end"
                               >.go-button {}}}
        :card-header {:padding (spacing 2)}
+       :align-eq {:display "grid"
+                  :align-items "baseline"
+                  :gap [[(spacing 1) (spacing 0.5)]]
+                  :grid-template-columns "auto auto"
+                  :justify-content "center"
+                  >*:first-child {:grid-column "1 / -1"}
+                  :margin-y (spacing 0.5)
+                  }
        :aligned-environment {:display "grid"
                              :align-items "baseline"
                              :gap [[(spacing 1) (spacing 0.5)]]
@@ -843,7 +856,7 @@
               &.result {>.step-summary>h6 {:font-weight "500"
                                            >.normal {:font-weight "normal"}}
                         >.step-content {:grid-column "1 / -1"
-                                        .MuiCollapse-wrapperInner {:padding-bottom (spacing 4)}}}
+                                        .MuiCollapse-wrapperInner {:padding-bottom (spacing 2)}}}
               >.icon-and-line {:display "flex"
                                :flex-direction "column"
                                :padding-top 3
@@ -1086,6 +1099,10 @@
        :vertical-grid {:display "grid"
                        :row-gap (spacing 1)
                        :grid-template-columns "1fr"}
+       :vertical-grid-2 {:display "grid"
+                       :row-gap (spacing 2)
+                       :grid-template-columns "1fr"}
+       :top-margin {:margin-top (spacing 2)}
        :input-section {:display "grid"
                        :row-gap (spacing 2)
                        >.terms-section
@@ -1136,6 +1153,8 @@
         '(tr :first-child >td) {:padding-top (spacing 1)}
         '(tr :last-child >td) {:padding-bottom (spacing 1)
                                :border-bottom table-border}
+        '(td (:nth-child 3)) {:text-align "center"}
+        '(td (:nth-child 2)) {:white-space "nowrap"}
         td {:vertical-align "top"}
         [td th] {:padding (spacing 0.5)}
         th {:text-align "left"
@@ -1158,8 +1177,8 @@
           :border-color '(rgba 0 0 0 0.23)
           :position "relative"
           :padding (spacing 0.5)
-          '(.cmt-operator (:not :first-child) (:not .nospace-before) :before) {:content "' '"}
-          '(.cmt-operator (:not :last-child) (:not .nospace-after) :after) {:content "' '"}
+          ;'(.cmt-operator (:not :first-child) (:not .nospace-before) :before) {:content "' '"}
+          ;'(.cmt-operator (:not :last-child) (:not .nospace-after) :after) {:content "' '"}
           }
          }
         }

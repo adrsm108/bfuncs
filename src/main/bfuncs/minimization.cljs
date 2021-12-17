@@ -468,8 +468,7 @@
     (bprod? bexpr) (into coll bexpr)
     :else (conj coll bexpr)))
 
-(defn minimal-covers
-  [primes implicants]
+(defn minimal-covers [primes implicants]
   (let [[primes-vec covers] (covering-sets primes implicants)
         [ess rem] (separate-essentials covers)]
     (for [cover (if (seq rem)
@@ -739,6 +738,8 @@
                           vars)
                     bobj))
 
+
+
 (defn quine-mccluskey-meta
   ([terms] (quine-mccluskey-meta terms nil))
   ([terms unspecified-terms]
@@ -747,13 +748,20 @@
      (let [[steps primes] (prime-implicant-steps (concat terms unspecified-terms))
            terms (sort compare-implicants terms)
            [primes covers] (covering-sets primes terms)
-           [essentials remaining] (separate-essentials-indexed covers)]
-       (mp steps primes essentials remaining covers)))))
+           [essentials remaining] (separate-essentials-indexed covers)
+           min-cover (when (seq remaining)
+                               (let [dnf (->SOP (apply &&* (map (applied ||*) (vals remaining))))]
+                                 (if (echol :bsum? (bsum? (echol :dnf dnf)))
+                                   (let [counts (mapv (partial count-when some?) primes)
+                                         score #(if (bprod? %) (map-reduce counts + %) (counts %))]
+                                     (first (first (minimal-by score dnf))))
+                                   dnf)))]
+       (mp steps primes essentials remaining covers min-cover)))))
 
 (defn minimization-steps-from-expr [target-form vars expr]
   (let [[term-type term-word imp-word] (case target-form
-                                           :SOP [:minterms "minterm" "implicant"]
-                                           :POS [:maxterms "maxterm" "implicate"])
+                                         :SOP [:minterms "minterm" "implicant"]
+                                         :POS [:maxterms "maxterm" "implicate"])
         bobj (bexpr->bobj expr)
         truth-vecs ((if (= term-type :minterms) minterms maxterms) vars bobj true)]
     (assoc (quine-mccluskey-meta truth-vecs)

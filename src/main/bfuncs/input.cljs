@@ -4,7 +4,7 @@
    [bfuncs.style :refer [classes]]
    [applied-science.js-interop :as j]
    [bfuncs.utils :refer [echol echo mp toggle! event-value let-case reduce!]]
-   [bfuncs.typesetting :refer [$ format-latex-var terms-expression expression]]
+   [bfuncs.typesetting :refer [$ format-latex-var terms-expression expression ->latex]]
    [reagent-material-ui.core.typography :refer [typography]]
    [reagent-material-ui.core.button-base :refer [button-base]]
    [reagent-material-ui.core.click-away-listener :refer [click-away-listener]]
@@ -280,18 +280,21 @@
    [typography {:component "div"}
     "Minterms and maxterms should be given as lists of numbers separated by commas or whitespace.
      Integers in base 10, 2, 8, and 16 are supported through the corresponding javascript literal syntax.
-    For instance, 24 can be input as "
+    For instance, 24 can be input in decimal, binary, octal, and hex as "
     [:span.syntax [:div.x [:span.cmt-number "24"]]] ", "
     [:span.syntax [:div.x [:span.cmt-number "0b11000"]]] ", "
-    [:span.syntax [:div.x [:span.cmt-number "0o30"]]] ", or "
-    [:span.syntax [:div.x [:span.cmt-number "0x18"]]] " in decimal, binary, octal, or hex respectively."]
+    [:span.syntax [:div.x [:span.cmt-number "0o30"]]] ", and "
+    [:span.syntax [:div.x [:span.cmt-number "0x18"]]] "  respectively."]
    ]
   )
 
 (defn expression-input-info [{}]
   (let [a [:span.cmt-variableName "a"]
         b [:span.cmt-variableName "b"]
-        bin (fn [o] [:div.x a o b])]
+        bin (fn [[tag o]] [:div.x a [tag (str " " o " ")] b])
+        link (fn [text href] [link {:href href :color "secondary"} text])
+        ass (fn [expr] [$ {:class "ass"} (->latex expr nil {:precedence {} :group? >=} nil false)])
+        ]
     [typography {:component "div"
                  :class (classes :input-info)}
      [typography {:variant "h6"}
@@ -303,7 +306,8 @@
       with the restriction that names must begin with a letter, and cannot end with an underscore."]
      [typography {:component "div"}
       "The following table gives supported operators from highest to lowest precedence.
-      Operators within the same group have equal precedence, and are left associative."]
+      Operators within the same group have equal precedence.
+      Associative operators with equal precedence are left-associative."]
      [typography {:component "div"}
       "Any non-alphabetic operator may be prefixed with "
       [:span.syntax [:div.x [:span.cmt-negated.cmt-operator "!"]]]
@@ -322,198 +326,188 @@
        [:tr
         [:th "Operation"]
         [:th "Truth Vector"]
+        [:th "Associativity"]
         [:th "Syntax"]]]
 
       [:tbody
        [:tr
         [:td "Grouping"]
-        [:td  "-"]
-        [:td
-         [:div.syntax
-          [:div.x "( expr )"]]]]]
+        [:td]
+        [:td]
+        [:td>div.syntax
+         [:div.x "( " [:em "expr"] " )"]]]]
 
       [:tbody
        [:tr
         [:td "True"]
         [:td "1"]
-        [:td
-         [:div.syntax
-          [:div.x [:span.cmt-keyword.cmt-bool "true"]]
-          [:div.x [:span.cmt-bool "1"]]
-          [:div.x [:span.cmt-bool "⊤"]]]]]
+        [:td (ass [:TRUE])]
+        [:td>div.syntax
+         [:div.x [:span.cmt-keyword.cmt-bool "true"]]
+         [:div.x [:span.cmt-bool "1"]]
+         [:div.x [:span.cmt-bool "⊤"]]]]
 
        [:tr
         [:td "False"]
         [:td "0"]
-        [:td
-         [:div.syntax
-          [:div.x [:span.cmt-keyword.cmt-bool "false"]]
-          [:div.x [:span.cmt-bool "0"]]
-          [:div.x [:span.cmt-bool "⊥"]]]]]]
+        [:td (ass [:FALSE])]
+        [:td>div.syntax
+         [:div.x [:span.cmt-keyword.cmt-bool "false"]]
+         [:div.x [:span.cmt-bool "0"]]
+         [:div.x [:span.cmt-bool "⊥"]]]]]
 
       [:tbody
        [:tr
-        [:td [link {:href "https://en.wikipedia.org/wiki/Negation"}
-              "NOT"]]
+        [:td (link "NOT" "https://en.wikipedia.org/wiki/Negation")]
         [:td "(10)"]
-        [:td
-         [:div.syntax
-          [:div.x [:span.cmt-operator-keyword.cmt-operator.cmt-keyword.cmt-negated.cmt-operator "not"] a]
-          [:div.x [:span.cmt-negated.cmt-operator.nospace-after "!"] a]
-          [:div.x a [:span.cmt-negated.cmt-operator.nospace-before "'"]]
-          [:div.x [:span.cmt-negated.cmt-operator.nospace-after "~"] a]]]]]
+        [:td (ass [:NOT "a"])]
+        [:td>div.syntax
+         [:div.x [:span.cmt-operator-keyword.cmt-operator.cmt-keyword.cmt-negated.cmt-operator "not "] a]
+         [:div.x [:span.cmt-negated.cmt-operator "!"] a]
+         [:div.x a [:span.cmt-negated.cmt-operator "'"]]
+         [:div.x [:span.cmt-negated.cmt-operator "~"] a]]]]
 
       [:tbody
        [:tr
-        [:td
-         [link {:href "https://en.wikipedia.org/wiki/Logical_conjunction"}
-          "AND"]]
+        [:td (link "AND" "https://en.wikipedia.org/wiki/Logical_conjunction")]
         [:td "(0001)"]
-        [:td
-         [:div.syntax
-          (bin [:span.cmt-operator-keyword.cmt-operator.cmt-keyword.cmt-log-op.cmt-operator "and"])
-          (bin " ")
-          (bin [:span.cmt-log-op.cmt-operator "&&"])
-          (bin [:span.cmt-log-op.cmt-operator "&"])
-          (bin [:span.cmt-log-op.cmt-operator "."])
-          (bin [:span.cmt-log-op.cmt-operator "*"])
-          (bin [:span.cmt-log-op.cmt-operator "∧"])]]]
+        [:td (ass [:AND "a" "b" "c"])]
+        [:td>div.syntax
+         (bin [:span.cmt-operator-keyword.cmt-operator.cmt-keyword.cmt-log-op.cmt-operator "and"])
+         [:div.x a " " b]
+         (bin [:span.cmt-log-op.cmt-operator "&&"])
+         (bin [:span.cmt-log-op.cmt-operator "&"])
+         (bin [:span.cmt-log-op.cmt-operator "."])
+         (bin [:span.cmt-log-op.cmt-operator "*"])
+         (bin [:span.cmt-log-op.cmt-operator "∧"])]]
 
        [:tr
-        [:td [link {:href "https://en.wikipedia.org/wiki/Sheffer_stroke"}
-              "NAND"]]
+        [:td (link "NAND" "https://en.wikipedia.org/wiki/Sheffer_stroke")]
         [:td "(1110)"]
-        [:td
-         [:div.syntax
-          (bin [:span.cmt-operator-keyword.cmt-operator.cmt-keyword.cmt-log-op.cmt-operator "nand"])
-          (bin [:span.cmt-log-op.cmt-operator "⊼"])
-          (bin [:span.cmt-log-op.cmt-operator "↑"])
-          #_(bin [:span.cmt-negated.cmt-operator "!&&"])
-          #_(bin [:span.cmt-negated.cmt-operator "!*"])]]]]
+        [:td (ass [:NAND "a" "b" "c"])]
+        [:td>div.syntax
+         (bin [:span.cmt-operator-keyword.cmt-operator.cmt-keyword.cmt-log-op.cmt-operator "nand"])
+         (bin [:span.cmt-log-op.cmt-operator "⊼"])
+         (bin [:span.cmt-log-op.cmt-operator "↑"])]]]
 
       [:tbody
        [:tr
-        [:td [link {:href "https://en.wikipedia.org/wiki/Exclusive_or"}
-              "XOR"]]
+        [:td (link "XOR" "https://en.wikipedia.org/wiki/Exclusive_or")]
         [:td "(0110)"]
-        [:td
-         [:div.syntax
-          (bin [:span.cmt-operator-keyword.cmt-operator.cmt-keyword.cmt-log-op.cmt-operator "xor"])
-          (bin [:span.cmt-log-op.cmt-operator "^"])
-          (bin [:span.cmt-log-op.cmt-operator "<>"])
-          (bin [:span.cmt-log-op.cmt-operator "<+>"])
-          (bin [:span.cmt-log-op.cmt-operator "⊕"])
-          (bin [:span.cmt-log-op.cmt-operator "⊻"])]]]
+        [:td (ass [:XOR "a" "b" "c"])]
+        [:td>div.syntax
+         (bin [:span.cmt-operator-keyword.cmt-operator.cmt-keyword.cmt-log-op.cmt-operator "xor"])
+         (bin [:span.cmt-log-op.cmt-operator "^"])
+         (bin [:span.cmt-log-op.cmt-operator "!="])
+         (bin [:span.cmt-log-op.cmt-operator "<+>"])
+         (bin [:span.cmt-log-op.cmt-operator "⊕"])
+         (bin [:span.cmt-log-op.cmt-operator "⊻"])]]
 
        [:tr
-        [:td [link {:href "https://en.wikipedia.org/wiki/Logical_biconditional"}
-              "XNOR"]]
+        [:td (link "XNOR" "https://en.wikipedia.org/wiki/Logical_biconditional")]
         [:td "(1001)"]
-        [:td
-         [:div.syntax
-          (bin [:span.cmt-operator-keyword.cmt-operator.cmt-keyword.cmt-log-op.cmt-operator "xnor"])
-          (bin [:span.cmt-log-op.cmt-operator "=="])
-          (bin [:span.cmt-log-op.cmt-operator "<*>"])
-          (bin [:span.cmt-log-op.cmt-operator "<.>"])
-          (bin [:span.cmt-log-op.cmt-operator "⊙"])
-          (bin [:span.cmt-log-op.cmt-operator "⩟"])]]]]
+        [:td (ass [:XNOR "a" "b" "c"])]
+        [:td>div.syntax
+         (bin [:span.cmt-operator-keyword.cmt-operator.cmt-keyword.cmt-log-op.cmt-operator "xnor"])
+         (bin [:span.cmt-log-op.cmt-operator "=="])
+         (bin [:span.cmt-log-op.cmt-operator "<*>"])
+         (bin [:span.cmt-log-op.cmt-operator "⊙"])
+         (bin [:span.cmt-log-op.cmt-operator "⩟"])]]]
 
       [:tbody
        [:tr
         [:td
-         [link {:href "https://en.wikipedia.org/wiki/Logical_disjunction"}
-          "OR"]]
+         (link "OR" "https://en.wikipedia.org/wiki/Logical_disjunction")]
         [:td "(0111)"]
-        [:td
-         [:div.syntax
-          (bin [:span.cmt-operator-keyword.cmt-operator.cmt-keyword.cmt-log-op.cmt-operator "or"])
-          (bin [:span.cmt-log-op.cmt-operator "+"])
-          (bin [:span.cmt-log-op.cmt-operator "||"])
-          (bin [:span.cmt-log-op.cmt-operator "|"])]]]
+        [:td (ass [:OR "a" "b" "c"])]
+        [:td>div.syntax
+         (bin [:span.cmt-operator-keyword.cmt-operator.cmt-keyword.cmt-log-op.cmt-operator "or"])
+         (bin [:span.cmt-log-op.cmt-operator "+"])
+         (bin [:span.cmt-log-op.cmt-operator "||"])
+         (bin [:span.cmt-log-op.cmt-operator "|"])]]
 
        [:tr
-        [:td [link {:href "https://en.wikipedia.org/wiki/Logical_NOR"}
-              "NOR"]]
+        [:td (link "NOR" "https://en.wikipedia.org/wiki/Logical_NOR")]
         [:td "(1000)"]
-        [:td
-         [:div.syntax
-          (bin [:span.cmt-operator-keyword.cmt-operator.cmt-keyword.cmt-log-op.cmt-operator "nor"])
-          (bin [:span.cmt-log-op.cmt-operator "⊽"])
-          (bin [:span.cmt-log-op.cmt-operator "↓"])
-          #_(bin [:span.cmt-negated.cmt-operator "!||"])
-          #_(bin [:span.cmt-negated.cmt-operator "!+"])]]]]
+        [:td (ass [:NOR "a" "b" "c"])]
+        [:td>div.syntax
+         (bin [:span.cmt-operator-keyword.cmt-operator.cmt-keyword.cmt-log-op.cmt-operator "nor"])
+         (bin [:span.cmt-log-op.cmt-operator "⊽"])
+         (bin [:span.cmt-log-op.cmt-operator "↓"])]]]
 
       [:tbody
        [:tr
         [:td [:em "n"] "-ary Equivalence"]
-        [:td "(100...001)"]
-        [:td
-         [:div.syntax
-          (bin [:span.cmt-operator-keyword.cmt-operator.cmt-keyword.cmt-rel-op.cmt-operator "equiv"])
-          (bin [:span.cmt-rel-op.cmt-operator "<=>"])
-          (bin [:span.cmt-rel-op.cmt-operator "<->"])
-          (bin [:span.cmt-rel-op.cmt-operator "⇔"])
-          (bin [:span.cmt-rel-op.cmt-operator "↔"])
-          (bin [:span.cmt-rel-op.cmt-operator "≡"])]]]
+        [:td "(10…01)"]
+        [:td (ass [:EQ "a" "b" "c"])]
+        [:td>div.syntax
+         (bin [:span.cmt-operator-keyword.cmt-operator.cmt-keyword.cmt-rel-op.cmt-operator "equiv"])
+         (bin [:span.cmt-rel-op.cmt-operator "<=>"])
+         (bin [:span.cmt-rel-op.cmt-operator "<->"])
+         (bin [:span.cmt-rel-op.cmt-operator "⇔"])
+         (bin [:span.cmt-rel-op.cmt-operator "↔"])
+         (bin [:span.cmt-rel-op.cmt-operator "≡"])]]
 
        [:tr
-        [:td [:em "n"] "-ary Nonequivalence"]
-        [:td "(011...110)"]
-        [:td
-         [:div.syntax
-          (bin [:span.cmt-rel-op.cmt-operator "⇎"])
-          #_(bin [:span.cmt-negated.cmt-operator "!<=>"])
-          #_(bin [:span.cmt-negated.cmt-operator "!<->"])
-          #_(bin [:span.cmt-negated.cmt-operator "!⇔"])
-          #_(bin [:span.cmt-negated.cmt-operator "!≡"])]]]]
+        [:td [:em "n"] "-ary Non\u00adequivalence"]
+        [:td "(01…10)"]
+        [:td (ass [:NEQ "a" "b" "c"])]
+        [:td>div.syntax
+         (bin [:span.cmt-operator-keyword.cmt-operator.cmt-keyword.cmt-rel-op.cmt-operator "nequiv"])
+         (bin [:span.cmt-rel-op.cmt-operator "<=/=>"])
+         (bin [:span.cmt-rel-op.cmt-operator "<-/->"])
+         (bin [:span.cmt-rel-op.cmt-operator "⇎"])
+         (bin [:span.cmt-rel-op.cmt-operator "↮"])
+         (bin [:span.cmt-rel-op.cmt-operator "≢"])] ]]
 
       [:tbody
        [:tr
-        [:td [link {:href "https://en.wikipedia.org/wiki/Converse_(logic)"} "Converse Implication"]]
+        [:td (link "Converse Implication" "https://en.wikipedia.org/wiki/Converse_(logic)")]
         [:td "(1101)"]
-        [:td
-         [:div.syntax
-          (bin [:span.cmt-operator-keyword.cmt-operator.cmt-keyword.cmt-rel-op.cmt-operator "impliedby"])
-          (bin [:span.cmt-rel-op.cmt-operator "<-"])
-          (bin [:span.cmt-rel-op.cmt-operator "<="])
-          (bin [:span.cmt-rel-op.cmt-operator "⇐"])
-          (bin [:span.cmt-rel-op.cmt-operator "←"])
-          (bin [:span.cmt-rel-op.cmt-operator "⊂"])]]]
+        [:td (ass [:CON [:CON "a" "b"] "c"])]
+        [:td>div.syntax
+         (bin [:span.cmt-operator-keyword.cmt-operator.cmt-keyword.cmt-rel-op.cmt-operator "impby"])
+         (bin [:span.cmt-rel-op.cmt-operator "<-"])
+         (bin [:span.cmt-rel-op.cmt-operator "<="])
+         (bin [:span.cmt-rel-op.cmt-operator "⇐"])
+         (bin [:span.cmt-rel-op.cmt-operator "←"])
+         (bin [:span.cmt-rel-op.cmt-operator "⊂"])]]
 
        [:tr
-        [:td [link {:href "https://en.wikipedia.org/wiki/Converse_nonimplication"}
-              "Converse Nonimplication"]]
+        [:td (link "Converse Non\u00adimplication" "https://en.wikipedia.org/wiki/Converse_nonimplication")]
         [:td "(0010)"]
-        [:td
-         [:div.syntax
-          (bin [:span.cmt-rel-op.cmt-operator "⇍"])
-          (bin [:span.cmt-rel-op.cmt-operator "⊄"])
-          #_(bin [:span.cmt-negated.cmt-operator "!<="])
-          #_(bin [:span.cmt-negated.cmt-operator "!<-"])]
-         ]]]
+        [:td (ass [:NCON [:NCON "a" "b"] "c"])]
+        [:td>div.syntax
+         (bin [:span.cmt-operator-keyword.cmt-operator.cmt-keyword.cmt-rel-op.cmt-operator "nimpby"])
+         (bin [:span.cmt-rel-op.cmt-operator "</-"])
+         (bin [:span.cmt-rel-op.cmt-operator "</="])
+         (bin [:span.cmt-rel-op.cmt-operator "⇍"])
+         (bin [:span.cmt-rel-op.cmt-operator "⊄"])]]]
 
       [:tbody
        [:tr
-        [:td [link {:href "https://en.wikipedia.org/wiki/Material_conditional"} "Implication"]]
+        [:td (link "Implication" "https://en.wikipedia.org/wiki/Material_conditional")]
         [:td "(1011)"]
-        [:td
-         [:div.syntax
-          (bin [:span.cmt-operator-keyword.cmt-operator.cmt-keyword.cmt-rel-op.cmt-operator "implies"])
-          (bin [:span.cmt-rel-op.cmt-operator "=>"])
-          (bin [:span.cmt-rel-op.cmt-operator "->"])
-          (bin [:span.cmt-rel-op.cmt-operator "→"])
-          (bin [:span.cmt-rel-op.cmt-operator "⊃"])]]]
+        [:td (ass [:IMP "a" [:IMP "b" "c"]])]
+        [:td>div.syntax
+         (bin [:span.cmt-operator-keyword.cmt-operator.cmt-keyword.cmt-rel-op.cmt-operator "imp"])
+         (bin [:span.cmt-rel-op.cmt-operator "=>"])
+         (bin [:span.cmt-rel-op.cmt-operator "->"])
+         (bin [:span.cmt-rel-op.cmt-operator "→"])
+         (bin [:span.cmt-rel-op.cmt-operator "⇒"])
+         (bin [:span.cmt-rel-op.cmt-operator "⊃"])]]
 
        [:tr
-        [:td [link {:href "https://en.wikipedia.org/wiki/Material_nonimplication"}
-              "Nonimplication"]]
+        [:td (link "Non\u00adimplication" "https://en.wikipedia.org/wiki/Material_nonimplication")]
         [:td "(0100)"]
-        [:td
-         [:div.syntax
-          (bin [:span.cmt-rel-op.cmt-operator "⇏"])
-          (bin [:span.cmt-rel-op.cmt-operator "⊅"])
-          #_(bin [:span.cmt-negated.cmt-operator "!=>"])
-          #_(bin [:span.cmt-negated.cmt-operator "!->"])]]]]]
+        [:td (ass [:NIMP "a" [:NIMP "b" "c"]])]
+        [:td>div.syntax
+         (bin [:span.cmt-operator-keyword.cmt-operator.cmt-keyword.cmt-rel-op.cmt-operator "nimp"])
+         (bin [:span.cmt-rel-op.cmt-operator "=/>"])
+         (bin [:span.cmt-rel-op.cmt-operator "-/>"])
+         (bin [:span.cmt-rel-op.cmt-operator "⇏"])
+         (bin [:span.cmt-rel-op.cmt-operator "↛"])
+         (bin [:span.cmt-rel-op.cmt-operator "⊅"])]]]]
 
      ]))
 
